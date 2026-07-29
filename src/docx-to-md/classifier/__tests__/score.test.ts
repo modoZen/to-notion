@@ -6,7 +6,11 @@ import {
   KEYWORD_START,
   SHELL_START,
   classifyLine,
+  isFilePathLabel,
   isGlossArg,
+  isSpanishLabel,
+  mixedProse,
+  stripWholeLineEmphasis,
   wordCount,
 } from "../score.ts";
 
@@ -75,7 +79,7 @@ describe("isGlossArg", () => {
   });
 });
 
-describe("classifyLine (motor base, sin casos límite)", () => {
+describe("classifyLine — motor de puntaje", () => {
   it("clasifica declaraciones de variable como código", () => {
     expect(classifyLine("const x = 1;")).toBe("code");
   });
@@ -103,11 +107,171 @@ describe("classifyLine (motor base, sin casos límite)", () => {
   it("una línea vacía es unknown", () => {
     expect(classifyLine("   ")).toBe("unknown");
   });
+});
 
-  it("todavía no reconoce prosa de manual como 'prose' (llega en el próximo paso), pero tampoco la marca como código", () => {
-    expect(classifyLine("En este módulo vamos a aprender los conceptos básicos de JavaScript")).toBe(
-      "unknown",
+describe("classifyLine — DEFECTO 1: URL suelta nunca es código", () => {
+  it("un autoenlace de pandoc es prosa", () => {
+    expect(classifyLine("<https://example.com>")).toBe("prose");
+  });
+
+  it("una URL suelta sin marcado de autoenlace también es prosa", () => {
+    expect(classifyLine("https://example.com/x")).toBe("prose");
+  });
+});
+
+describe("classifyLine — entradas de índice", () => {
+  it("una entrada de índice anidada es prosa", () => {
+    expect(classifyLine("[Título [6](#modulo-6)](#modulo-6)")).toBe("prose");
+  });
+
+  it("una línea compuesta solo por enlaces markdown es prosa", () => {
+    expect(classifyLine("[Uno](#a) [Dos](#b)")).toBe("prose");
+  });
+});
+
+describe("classifyLine — sangría NBSP (código pegado sin formato)", () => {
+  it("una línea con sangría de NBSP es código, aunque el contenido sea corto", () => {
+    expect(classifyLine("    return x;")).toBe("code");
+  });
+});
+
+describe("classifyLine — DEFECTO 5: etiquetas HTML evaluadas ya desescapadas", () => {
+  it("una etiqueta HTML escapada por pandoc se reconoce como código", () => {
+    expect(classifyLine("\\<script\\>")).toBe("code");
+  });
+
+  it("un DOCTYPE es código", () => {
+    expect(classifyLine("<!DOCTYPE html>")).toBe("code");
+  });
+});
+
+describe("classifyLine — cierres de bloque sueltos", () => {
+  it("un cierre de llave solo es código", () => {
+    expect(classifyLine("}")).toBe("code");
+  });
+
+  it("una apertura de llave sola es código", () => {
+    expect(classifyLine("{")).toBe("code");
+  });
+});
+
+describe("classifyLine — DEFECTO 3: freno de prosa", () => {
+  it("una oración larga con conectores del español y sin sintaxis de código es prosa", () => {
+    expect(
+      classifyLine("En este módulo vamos a aprender los conceptos básicos de JavaScript"),
+    ).toBe("prose");
+  });
+
+  it("la misma cantidad de palabras pero terminando en punto y coma no activa el freno", () => {
+    expect(classifyLine("const resultado = calcularElValorTotalDeLaCompra(carrito);")).toBe(
+      "code",
     );
-    expect(classifyLine("Explicación general del funcionamiento del navegador")).toBe("unknown");
+  });
+});
+
+describe("classifyLine — negrita como sentencia", () => {
+  it("una negrita que es solo un identificador es un rótulo de sección (prosa)", () => {
+    expect(classifyLine("**Object.create**")).toBe("prose");
+  });
+
+  it("una negrita con sintaxis de sentencia real es código", () => {
+    expect(classifyLine("**element.onclick = function(){}**")).toBe("code");
+  });
+
+  it("una negrita con dos puntos de subtítulo es prosa", () => {
+    expect(classifyLine("**Parcel:**")).toBe("prose");
+  });
+});
+
+describe("mixedProse — prosa que cita código", () => {
+  it("detecta una oración en español con fragmentos de código mezclados", () => {
+    expect(
+      mixedProse(
+        "La diferencia es que element.onclick hace lo mismo que element.addEventListener con distinta sintaxis",
+      ),
+    ).toBe(true);
+  });
+
+  it("no marca código real como mixedProse", () => {
+    expect(mixedProse("const x = document.querySelector('.foo');")).toBe(false);
+  });
+
+  it("classifyLine devuelve prosa para una línea mixedProse", () => {
+    expect(
+      classifyLine(
+        "La diferencia es que element.onclick hace lo mismo que element.addEventListener con distinta sintaxis",
+      ),
+    ).toBe("prose");
+  });
+});
+
+describe("isFilePathLabel — rótulo de archivo suelto", () => {
+  it("una ruta con carpetas es un rótulo de archivo", () => {
+    expect(isFilePathLabel("Assets/plugins/Ads/Ads.json")).toBe(true);
+  });
+
+  it("un nombre de archivo con extensión conocida es un rótulo de archivo", () => {
+    expect(isFilePathLabel("package.json")).toBe(true);
+  });
+
+  it("una URL no es un rótulo de archivo", () => {
+    expect(isFilePathLabel("https://example.com/package.json")).toBe(false);
+  });
+
+  it("una línea con espacios no es un rótulo de archivo", () => {
+    expect(isFilePathLabel("esto tiene espacios.json")).toBe(false);
+  });
+
+  it("classifyLine devuelve prosa para un rótulo de archivo suelto", () => {
+    expect(classifyLine("Assets/plugins/Ads/Ads.json")).toBe("prose");
+  });
+});
+
+describe("isSpanishLabel — etiqueta suelta en español", () => {
+  it("una etiqueta corta sin sintaxis de código es prosa", () => {
+    expect(isSpanishLabel("Otra solución")).toBe(true);
+    expect(isSpanishLabel("Explicación extra")).toBe(true);
+  });
+
+  it("una frase corta con dos puntos también es prosa", () => {
+    expect(isSpanishLabel("Si en nuestro código tenemos:")).toBe(true);
+  });
+
+  it("una sola palabra no cuenta como etiqueta", () => {
+    expect(isSpanishLabel("Nota")).toBe(false);
+  });
+
+  it("un nombre de archivo mencionado en la frase no rompe la detección", () => {
+    expect(isSpanishLabel("Creamos el archivo sw.js")).toBe(true);
+  });
+
+  it("classifyLine devuelve prosa para una etiqueta suelta en español", () => {
+    expect(classifyLine("Otra solución")).toBe("prose");
+  });
+});
+
+describe("classifyLine — comentario de cola con //", () => {
+  it("un `;` tapado por un comentario de cola igual cuenta para el puntaje de código", () => {
+    expect(classifyLine('x = [10, "hello"]; // Error')).toBe("code");
+  });
+
+  it("no confunde un comentario de cola con una URL dentro del string", () => {
+    expect(classifyLine('const url = "https://example.com/a/b";')).toBe("code");
+  });
+});
+
+describe("stripWholeLineEmphasis", () => {
+  it("quita los asteriscos que envuelven toda la línea", () => {
+    expect(stripWholeLineEmphasis("**foo()**")).toBe("foo()");
+  });
+
+  it("no toca una línea que no está envuelta completa en negrita", () => {
+    expect(stripWholeLineEmphasis("**foo** y bar")).toBe("**foo** y bar");
+  });
+});
+
+describe("classifyLine — frase larga con acentos y punto final", () => {
+  it("una frase de 6+ palabras con tildes terminada en punto es prosa", () => {
+    expect(classifyLine("Acá vamos a repasar la explicación completa del módulo.")).toBe("prose");
   });
 });
