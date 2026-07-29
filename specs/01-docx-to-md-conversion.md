@@ -1,6 +1,6 @@
 # SPEC 01 — Conversión de .docx a markdown (docx-to-md)
 
-> **Status:** Draft
+> **Status:** Aprobado
 > **Depends on:** (ninguna, es la primera spec)
 > **Date:** 2026-07-29
 > **Objective:** Portar el pipeline .docx → markdown del prototipo (`references/notion-sync.js`, Parte 1) a un módulo TypeScript probado con Vitest, junto con el scaffold inicial del proyecto (package.json, tsconfig, configuración de tests) y un script de npm para ejecutarlo manualmente.
@@ -48,19 +48,32 @@
 // src/docx-to-md/types.ts
 
 // Unidad intermedia producida por el tokenizer, antes de clasificar.
-export type UnitType = 'heading' | 'list' | 'quote' | 'image' | 'fence' | 'para';
+export type UnitType =
+  | "heading"
+  | "list"
+  | "quote"
+  | "image"
+  | "fence"
+  | "para";
 
 export interface Unit {
   type: UnitType;
-  level?: number;    // solo 'heading'
-  text?: string;     // solo 'heading'
-  src?: string;      // solo 'image', ruta al medio extraído por pandoc
-  lines?: string[];  // 'list' | 'quote' | 'para' | 'fence'
+  level?: number; // solo 'heading'
+  text?: string; // solo 'heading'
+  src?: string; // solo 'image', ruta al medio extraído por pandoc
+  lines?: string[]; // 'list' | 'quote' | 'para' | 'fence'
 }
 
 // Resultado del clasificador código-vs-prosa para cada unidad.
 export type ClassifiedKind =
-  | 'code' | 'prose' | 'quote' | 'heading' | 'image' | 'list' | 'fence' | 'unknown';
+  | "code"
+  | "prose"
+  | "quote"
+  | "heading"
+  | "image"
+  | "list"
+  | "fence"
+  | "unknown";
 
 export interface ModuleStats {
   code: number;
@@ -75,23 +88,23 @@ export interface ModuleStats {
 export interface ConvertedModule {
   number: number;
   title: string;
-  file: string;      // relativo al workspace del docx, ej. "modules/01-intro.md"
-  images: string[];  // nombres de archivo en media/ referenciados por este módulo
+  file: string; // relativo al workspace del docx, ej. "modules/01-intro.md"
+  images: string[]; // nombres de archivo en media/ referenciados por este módulo
   stats: ModuleStats;
 }
 
 export interface Manifest {
-  source: string;         // nombre de archivo del .docx origen (sin ruta)
-  generated: string;      // timestamp ISO de la conversión
+  source: string; // nombre de archivo del .docx origen (sin ruta)
+  generated: string; // timestamp ISO de la conversión
   modules: ConvertedModule[];
 }
 
 // Opciones de entrada para convertir un .docx.
 export interface ConvertOptions {
   docxPath: string;
-  workspaceRoot?: string;  // default: "workspace" en la raíz del proyecto
-  only?: number;           // convierte solo este número de módulo
-  keepIndex?: boolean;     // default: false (se detecta y descarta el índice)
+  workspaceRoot?: string; // default: "workspace" en la raíz del proyecto
+  only?: number; // convierte solo este número de módulo
+  keepIndex?: boolean; // default: false (se detecta y descarta el índice)
 }
 ```
 
@@ -169,12 +182,12 @@ Conventions:
 
 ## Risks
 
-| Risk | Mitigation |
-| --- | --- |
-| Al portar la heurística línea por línea de JS a TypeScript, alguna sutileza (orden de evaluación, comportamiento de una regex) cambia el resultado de clasificación respecto al prototipo ya validado. | Los tests con un fixture por cada `DEFECTO` son la red de seguridad mínima; antes de cerrar la spec, correr el módulo nuevo contra el mismo `.docx` real que ya validó el prototipo y comparar el markdown resultante. |
-| Node `>= 24` es una versión reciente; su ejecución nativa de TypeScript (type-stripping) tiene límites conocidos (no soporta todas las construcciones de TS, ej. enums en algunos modos) que podrían chocar con `strict: true` o con algo usado en el port. | Si aparece una limitación real, caer a compilar con `tsc` antes de ejecutar en vez de depender solo de la ejecución nativa, y dejarlo anotado como decisión revisada. |
-| Distintas versiones de pandoc instaladas en distintas máquinas pueden producir markdown crudo ligeramente distinto, afectando al tokenizer de formas no cubiertas por los fixtures. | Documentar en el `README.md` la versión de pandoc usada para validar (la misma que ya usaba el prototipo). |
-| El test de `runPandoc` se salta en máquinas sin pandoc instalado, dando falsa sensación de cobertura completa si no se lee el output con atención. | El reporte de Vitest deja explícito qué test se saltó; se documenta en el `README.md` que validar el pipeline completo requiere tener pandoc instalado localmente. |
+| Risk                                                                                                                                                                                                                                                        | Mitigation                                                                                                                                                                                                             |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Al portar la heurística línea por línea de JS a TypeScript, alguna sutileza (orden de evaluación, comportamiento de una regex) cambia el resultado de clasificación respecto al prototipo ya validado.                                                      | Los tests con un fixture por cada `DEFECTO` son la red de seguridad mínima; antes de cerrar la spec, correr el módulo nuevo contra el mismo `.docx` real que ya validó el prototipo y comparar el markdown resultante. |
+| Node `>= 24` es una versión reciente; su ejecución nativa de TypeScript (type-stripping) tiene límites conocidos (no soporta todas las construcciones de TS, ej. enums en algunos modos) que podrían chocar con `strict: true` o con algo usado en el port. | Si aparece una limitación real, caer a compilar con `tsc` antes de ejecutar en vez de depender solo de la ejecución nativa, y dejarlo anotado como decisión revisada.                                                  |
+| Distintas versiones de pandoc instaladas en distintas máquinas pueden producir markdown crudo ligeramente distinto, afectando al tokenizer de formas no cubiertas por los fixtures.                                                                         | Documentar en el `README.md` la versión de pandoc usada para validar (la misma que ya usaba el prototipo).                                                                                                             |
+| El test de `runPandoc` se salta en máquinas sin pandoc instalado, dando falsa sensación de cobertura completa si no se lee el output con atención.                                                                                                          | El reporte de Vitest deja explícito qué test se saltó; se documenta en el `README.md` que validar el pipeline completo requiere tener pandoc instalado localmente.                                                     |
 
 ---
 
