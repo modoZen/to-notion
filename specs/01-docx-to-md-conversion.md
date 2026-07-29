@@ -1,6 +1,6 @@
 # SPEC 01 — Conversión de .docx a markdown (docx-to-md)
 
-> **Status:** Aprobado
+> **Status:** Implementado
 > **Depends on:** (ninguna, es la primera spec)
 > **Date:** 2026-07-29
 > **Objective:** Portar el pipeline .docx → markdown del prototipo (`references/notion-sync.js`, Parte 1) a un módulo TypeScript probado con Vitest, junto con el scaffold inicial del proyecto (package.json, tsconfig, configuración de tests) y un script de npm para ejecutarlo manualmente.
