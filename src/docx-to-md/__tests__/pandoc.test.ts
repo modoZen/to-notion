@@ -29,6 +29,27 @@ describe("runPandoc — pandoc no está en el PATH", () => {
   });
 });
 
+describe("runPandoc — flags pasados a pandoc", () => {
+  afterEach(() => {
+    vi.doUnmock("node:child_process");
+    vi.resetModules();
+  });
+
+  it("invoca pandoc con --wrap=none (DEFECTO 6: sin esto corta a ~72 cols y parte código)", async () => {
+    vi.resetModules();
+    let receivedArgs: string[] = [];
+    vi.doMock("node:child_process", () => ({
+      spawnSync: (_cmd: string, args: string[]) => {
+        receivedArgs = args;
+        return { status: 0, stderr: "" };
+      },
+    }));
+    const { runPandoc: runPandocMocked } = await import("../pandoc.ts");
+    runPandocMocked("cualquier.docx", join(tmpdir(), "docx2md-flags-test"));
+    expect(receivedArgs).toContain("--wrap=none");
+  });
+});
+
 describe.skipIf(!pandocAvailable)("runPandoc — invocación real de pandoc", () => {
   let workDir: string;
   let docxPath: string;

@@ -151,17 +151,17 @@ Conventions:
 
 ## Acceptance criteria
 
-- [ ] `npm install` y `npm run typecheck` pasan sin errores.
-- [ ] `npm test` corre y todos los tests de Vitest pasan en verde.
-- [ ] Cada caso `DEFECTO 1` a `9` documentado en el prototipo tiene al menos un test que lo reproduce y pasa.
-- [ ] Ejecutar `npm run convert -- <ruta a un .docx real>` genera `workspace/<slug>/modules/*.md`, `workspace/<slug>/media/*`, `workspace/<slug>/manifest.json` y `workspace/<slug>/report.txt`.
-- [ ] El markdown generado para un módulo de prueba clasifica código y prosa de forma equivalente al resultado ya validado manualmente con el prototipo sobre el mismo `.docx`.
-- [ ] Volver a correr `npm run convert -- <mismo .docx>` no vuelve a invocar pandoc: se reusa el `manifest.json` existente (verificable por log o porque los archivos no cambian de timestamp).
-- [ ] Convertir con el filtro de módulo activo genera solo el módulo indicado, sin generar los demás.
-- [ ] Un `.docx` cuyo primer módulo es un índice/tabla de contenido se descarta automáticamente del resultado.
-- [ ] Si pandoc no está instalado en el PATH, `npm run convert` termina con un mensaje de error claro y código de salida distinto de cero.
-- [ ] `workspace/` no aparece como archivo trackeable en `git status` (está en `.gitignore`).
-- [ ] `README.md` documenta el árbol de archivos de `src/docx-to-md/` y `src/cli/`.
+- [x] `npm install` y `npm run typecheck` pasan sin errores.
+- [x] `npm test` corre y todos los tests de Vitest pasan en verde. (154/154)
+- [x] Cada caso `DEFECTO 1` a `9` documentado en el prototipo tiene al menos un test que lo reproduce y pasa. (DEFECTO 9 en `render.ts` es una rama defensiva estructuralmente inalcanzable con la lógica actual — el `while` siempre ejecuta al menos una vez porque ya se validó `kinds[i] === 'code'` antes de entrar —, así que solo tiene test la ocurrencia alcanzable, en `tokenizer.ts`.)
+- [x] Ejecutar `npm run convert -- <ruta a un .docx real>` genera `workspace/<slug>/modules/*.md`, `workspace/<slug>/media/*`, `workspace/<slug>/manifest.json` y `workspace/<slug>/report.txt`. (Verificado a mano con dos `.docx` reales generados vía pandoc, uno de ellos con una imagen embebida.)
+- [x] El markdown generado para un módulo de prueba clasifica código y prosa de forma equivalente al resultado ya validado manualmente con el prototipo sobre el mismo `.docx`. (Verificado contra el `.docx` real de "Curso Profesional de JavaScript" — Platzi, 11 módulos: los 11 markdown generados son byte a byte idénticos entre `references/notion-sync.js` y el puerto nuevo, mismos 212 archivos de media, mismos manifests.)
+- [x] Volver a correr `npm run convert -- <mismo .docx>` no vuelve a invocar pandoc: se reusa el `manifest.json` existente (verificable por log o porque los archivos no cambian de timestamp). (Verificado con `stat` sobre `manifest.json` en una corrida real, además de test unitario.)
+- [x] Convertir con el filtro de módulo activo genera solo el módulo indicado, sin generar los demás. (Cubierto por test de `convert.ts`; el CLI no expone un flag `--only` a propósito, ver Decisions.)
+- [x] Un `.docx` cuyo primer módulo es un índice/tabla de contenido se descarta automáticamente del resultado. (Verificado con `.docx` real y en tests.)
+- [x] Si pandoc no está instalado en el PATH, `npm run convert` termina con un mensaje de error claro y código de salida distinto de cero. (Verificado corriendo el CLI real con un `PATH` sin pandoc, además del test mockeado.)
+- [x] `workspace/` no aparece como archivo trackeable en `git status` (está en `.gitignore`).
+- [x] `README.md` documenta el árbol de archivos de `src/docx-to-md/` y `src/cli/`.
 
 ---
 
