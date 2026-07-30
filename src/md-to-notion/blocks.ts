@@ -4,6 +4,7 @@ import type { ImageMode, MdToBlocksOptions, MdToBlocksResult, NotionBlock } from
 
 const B_HEADING = /^(#{1,3})\s+(.*)$/;
 const B_LIST = /^(\s*)[-*+]\s+(.*)$/;
+const B_NUMBERED_LIST = /^(\s*)\d+\.\s+(.*)$/;
 const B_IMAGE = /^!\[\]\((image[^)]+)\)\s*$/;
 const B_FENCE = /^```(.*)$/;
 
@@ -89,6 +90,13 @@ export function mdToBlocks(markdown: string, opts: MdToBlocksOptions = {}): MdTo
       continue;
     }
 
+    if (B_NUMBERED_LIST.test(line)) {
+      const [consumed, listBlocks] = takeNumberedList(lines, i);
+      blocks.push(...listBlocks);
+      i = consumed;
+      continue;
+    }
+
     // Párrafo: una línea = un bloque (el conversor ya normalizó con --wrap=none)
     blocks.push({
       object: "block",
@@ -162,6 +170,53 @@ function takeList(lines: string[], start: number): [number, NotionBlock[]] {
     } else {
       const parent = stack[stack.length - 1];
       const bag = parent.bulleted_list_item;
+      (bag.children || (bag.children = [])).push(block);
+    }
+    stack.push(block);
+  }
+  return [i, roots];
+}
+
+/**
+ * Listas numeradas con anidación. Espejo estructural de `takeList`: misma
+ * lógica de profundidad y de corte, pero produce `numbered_list_item`.
+ * Notion numera automáticamente por posición; no se persiste ningún número.
+ */
+function takeNumberedList(lines: string[], start: number): [number, NotionBlock[]] {
+  const items: { depth: number; text: string }[] = [];
+  let i = start;
+  while (i < lines.length) {
+    if (lines[i].trim() === "") {
+      // una línea en blanco no corta la lista si lo que sigue sigue siendo lista
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim() === "") j++;
+      if (j < lines.length && B_NUMBERED_LIST.test(lines[j])) {
+        i = j;
+        continue;
+      }
+      break;
+    }
+    const m = B_NUMBERED_LIST.exec(lines[i]);
+    if (!m) break;
+    items.push({ depth: Math.floor(m[1].length / 4), text: m[2] });
+    i++;
+  }
+
+  // Reconstruir el árbol por profundidad.
+  const roots: NotionBlock[] = [];
+  const stack: Extract<NotionBlock, { type: "numbered_list_item" }>[] = [];
+  for (const it of items) {
+    const block: Extract<NotionBlock, { type: "numbered_list_item" }> = {
+      object: "block",
+      type: "numbered_list_item",
+      numbered_list_item: { rich_text: parseInline(it.text) },
+    };
+    while (stack.length > it.depth) stack.pop();
+    if (stack.length === 0) {
+      roots.push(block);
+    } else {
+      const parent = stack[stack.length - 1];
+      const bag = parent.numbered_list_item;
       (bag.children || (bag.children = [])).push(block);
     }
     stack.push(block);

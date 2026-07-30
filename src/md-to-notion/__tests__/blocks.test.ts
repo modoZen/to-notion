@@ -188,6 +188,85 @@ describe("mdToBlocks", () => {
     expect(blocks.map((b) => b.type)).toEqual(["bulleted_list_item", "paragraph"]);
   });
 
+  it("lista numerada simple produce numbered_list_item por línea", () => {
+    const { blocks } = mdToBlocks("1.  uno\n2.  dos\n3.  tres");
+
+    expect(blocks).toEqual([
+      {
+        object: "block",
+        type: "numbered_list_item",
+        numbered_list_item: { rich_text: [{ type: "text", text: { content: "uno" } }] },
+      },
+      {
+        object: "block",
+        type: "numbered_list_item",
+        numbered_list_item: { rich_text: [{ type: "text", text: { content: "dos" } }] },
+      },
+      {
+        object: "block",
+        type: "numbered_list_item",
+        numbered_list_item: { rich_text: [{ type: "text", text: { content: "tres" } }] },
+      },
+    ]);
+  });
+
+  it("lista numerada anidada a dos niveles produce children dentro del item padre", () => {
+    const md = "1.  padre 1\n    1.  hijo 1.1\n    2.  hijo 1.2\n2.  padre 2";
+    const { blocks } = mdToBlocks(md);
+
+    expect(blocks).toEqual([
+      {
+        object: "block",
+        type: "numbered_list_item",
+        numbered_list_item: {
+          rich_text: [{ type: "text", text: { content: "padre 1" } }],
+          children: [
+            {
+              object: "block",
+              type: "numbered_list_item",
+              numbered_list_item: { rich_text: [{ type: "text", text: { content: "hijo 1.1" } }] },
+            },
+            {
+              object: "block",
+              type: "numbered_list_item",
+              numbered_list_item: { rich_text: [{ type: "text", text: { content: "hijo 1.2" } }] },
+            },
+          ],
+        },
+      },
+      {
+        object: "block",
+        type: "numbered_list_item",
+        numbered_list_item: { rich_text: [{ type: "text", text: { content: "padre 2" } }] },
+      },
+    ]);
+  });
+
+  it("una línea en blanco no corta la lista numerada si sigue habiendo números después", () => {
+    const md = "1.  uno\n\n2.  dos";
+    const { blocks } = mdToBlocks(md);
+
+    expect(blocks).toEqual([
+      {
+        object: "block",
+        type: "numbered_list_item",
+        numbered_list_item: { rich_text: [{ type: "text", text: { content: "uno" } }] },
+      },
+      {
+        object: "block",
+        type: "numbered_list_item",
+        numbered_list_item: { rich_text: [{ type: "text", text: { content: "dos" } }] },
+      },
+    ]);
+  });
+
+  it("una línea en blanco sí corta la lista numerada si lo que sigue no es una línea numerada", () => {
+    const md = "1.  uno\n\nPárrafo después.";
+    const { blocks } = mdToBlocks(md);
+
+    expect(blocks.map((b) => b.type)).toEqual(["numbered_list_item", "paragraph"]);
+  });
+
   it("imagen en modo 'callout' produce un bloque callout con ícono 🖼️", () => {
     const { blocks, images } = mdToBlocks("![](image1.png)", { imageMode: "callout" });
 

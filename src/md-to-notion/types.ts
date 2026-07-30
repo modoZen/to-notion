@@ -39,6 +39,11 @@ export type NotionBlock =
     }
   | {
       object: "block";
+      type: "numbered_list_item";
+      numbered_list_item: { rich_text: RichText[]; children?: NotionBlock[] };
+    }
+  | {
+      object: "block";
       type: "code";
       code: { language: string; rich_text: RichText[] };
     }
