@@ -50,6 +50,11 @@ export type NotionBlock =
         color: string;
         rich_text: RichText[];
       };
+    }
+  | {
+      object: "block";
+      type: "image";
+      image: { type: "file_upload"; file_upload: { id: string }; caption: RichText[] };
     };
 
 export type ImageMode = "callout" | "marker";
