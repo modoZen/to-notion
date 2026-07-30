@@ -9,7 +9,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "convert": "node src/cli/convert.ts"
+    "convert": "node src/cli/convert.ts",
+    "blocks": "node src/cli/blocks.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
