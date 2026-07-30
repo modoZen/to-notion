@@ -7,10 +7,9 @@ correspondiente en una base `Cursos`. El pipeline completo tiene tres etapas:
 1. `.docx` → markdown + imágenes extraídas (cacheado en disco, revisable por
    un humano) (`SPEC 01`).
 2. markdown → bloques de Notion (`SPEC 02`).
-3. cliente de Notion + subida de un módulo puntual, a mano (`SPEC 03`).
-   **Esto es lo que hay implementado hasta ahora.** Todavía no existe un CLI
-   que recorra todos los módulos de un curso de punta a punta: eso es
-   `SPEC 05` en adelante.
+3. cliente de Notion + subida a Notion: un módulo puntual a mano (`SPEC 03`,
+   `npm run push`) o el `.docx` completo de punta a punta en una sola corrida
+   (`SPEC 05`, `npm run sync`).
 
 Este repo es público. Los `.docx` de origen y todo lo generado en
 `workspace/` (markdown, imágenes, manifest, estado de subida) son contenido
@@ -34,6 +33,7 @@ npm test            # vitest run
 npm run convert -- <ruta/al/archivo.docx>
 npm run blocks -- <ruta/al/modulo.md>
 npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID> [--dry-run]
+npm run sync -- <ruta/al/archivo.docx> <PARENT_PAGE_ID> [MODULO_N] [--dry-run]
 ```
 
 `npm run convert` escribe la salida en `workspace/<slug-del-docx>/`:
@@ -75,6 +75,25 @@ un intento anterior se archiva y se rehace. Correr sin `--dry-run` requiere
 una página padre real de Notion — no hay chequeo de acceso a esa página en
 esta versión del CLI (`SPEC 05`), así que un `PARENT_PAGE_ID` inválido falla
 recién al intentar crear la página.
+
+`npm run sync -- <ruta/al/archivo.docx> <PARENT_PAGE_ID> [MODULO_N]
+[--dry-run]` convierte el `.docx` completo y sube **todos** sus módulos a
+Notion en una sola corrida, o uno puntual si se pasa `MODULO_N`. Requiere
+`NOTION_TOKEN` igual que `npm run push`. La conversión (`convertDocx`) corre
+siempre, tenga o no `--dry-run` — es local y cacheada, igual que
+`npm run convert`; `--dry-run` solo afecta las etapas que tocan la red. Si se
+pasa `MODULO_N` y no existe, el error es `"No hay módulo N. Van del 1 al
+<total>."` e imprime antes de intentar ninguna llamada de red. Antes de subir
+nada (salvo con `--dry-run`, que se salta este paso) chequea acceso a la
+página padre con `GET /pages/:id` e imprime su título; si falla, muestra un
+mensaje de ayuda (token de integración, página compartida con esa
+integración, id correcto sin el `?v=…`) y aborta. Después recorre los
+módulos en orden llamando a `pushModule` uno por uno — mismo comportamiento
+de reanudación que `npm run push` (un módulo ya `done` se salta, una página a
+medias de un intento previo se archiva y se rehace) pero **sin** `try/catch`
+por módulo: un error en cualquiera aborta el resto de la corrida sin seguir
+con los siguientes (decisión explícita, ver `SPEC 05`). El estado ya guardado
+permite resumir donde quedó con una corrida siguiente.
 
 La versión de la API de Notion (`NOTION_VERSION` en `src/notion-client/client.ts`)
 queda **pinneada a mano** (`2026-03-11`); si Notion la deprecara, hay que
@@ -123,6 +142,7 @@ actualizarla en el código — no hay chequeo automático.
 | `convert.ts` | Entrypoint de `npm run convert -- <ruta.docx>`. Llama a `convertDocx`, imprime el reporte y la carpeta de salida, o el error con código de salida distinto de cero. |
 | `blocks.ts` | Entrypoint de `npm run blocks -- <ruta/al/modulo.md>`. Llama a `mdToBlocks` sobre el markdown leído e imprime `{ blocks, images }` por stdout como JSON, sin tocar disco. |
 | `push.ts` | Entrypoint de `npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID> [--dry-run]`. Parseo manual de flags, deriva `outDir` de `--media`, resuelve `PushModuleInput` desde `manifest.json` o el nombre de archivo, y llama a `loadEnv` + `pushModule`. |
+| `sync.ts` | Entrypoint de `npm run sync -- <archivo.docx> <PARENT_PAGE_ID> [MODULO_N] [--dry-run]`. `parseArgv` (posicionales + `--dry-run` en cualquier posición) separado de `runSync` (orquestación testeable sin pasar por `process.argv`) y de `main()`. `runSync` convierte el `.docx` (`convertDocx`, siempre), filtra `manifest.modules` por `MODULO_N` si vino, chequea acceso a la página padre (`GET /pages/:id`) salvo con `--dry-run`, y recorre los módulos filtrados llamando a `pushModule` en orden, sin `try/catch` por módulo — un error aborta el resto de la corrida. |
 
 ## Tests
 
