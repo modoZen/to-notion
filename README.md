@@ -10,7 +10,7 @@ correspondiente en una base `Cursos`. El pipeline completo tiene tres etapas:
 3. cliente de Notion + subida de un módulo puntual, a mano (`SPEC 03`).
    **Esto es lo que hay implementado hasta ahora.** Todavía no existe un CLI
    que recorra todos los módulos de un curso de punta a punta: eso es
-   `SPEC 04` en adelante.
+   `SPEC 05` en adelante.
 
 Este repo es público. Los `.docx` de origen y todo lo generado en
 `workspace/` (markdown, imágenes, manifest, estado de subida) son contenido
@@ -73,7 +73,7 @@ mayúsculas, por cómo funciona `slugify` en `SPEC 01`). Un módulo que ya
 quedó `done` en el estado se salta sin tocar la red; una página a medias de
 un intento anterior se archiva y se rehace. Correr sin `--dry-run` requiere
 una página padre real de Notion — no hay chequeo de acceso a esa página en
-esta versión del CLI (`SPEC 04`), así que un `PARENT_PAGE_ID` inválido falla
+esta versión del CLI (`SPEC 05`), así que un `PARENT_PAGE_ID` inválido falla
 recién al intentar crear la página.
 
 La versión de la API de Notion (`NOTION_VERSION` en `src/notion-client/client.ts`)
@@ -104,7 +104,7 @@ actualizarla en el código — no hay chequeo automático.
 | `types.ts` | Tipos del mapeo markdown → Notion (`RichText`, `RichTextAnnotations`, `NotionBlock`, `ImageMode`, `MdToBlocksOptions`, `MdToBlocksResult`). Interfaces propias y mínimas, no el SDK oficial de Notion (`@notionhq/client` se evalúa en `SPEC 03`, que es la que toca la red). |
 | `rich-text.ts` | Rich text en línea: `parseInline` (negrita, cursiva, código, enlaces `[texto](url)`, URLs sueltas, escapes de pandoc), `makeText`, `annotate`, y `splitRichText` (parte cualquier fragmento de más de 2000 caracteres, cortando en espacio/salto de línea cuando es posible). Constantes `MAX_TEXT`/`MAX_BLOCKS`. |
 | `lang.ts` | `NOTION_LANGS` (lista cerrada de lenguajes que acepta el bloque `code` de Notion) y `safeLang` (normaliza y cae a `'plain text'` si el lenguaje no está soportado). |
-| `blocks.ts` | `mdToBlocks`: mapea línea/estructura de markdown a bloque de Notion — headings `#`/`##`/`###`, párrafo, fence de código, listas con viñeta anidadas por indentación de a 4 espacios (`takeList`, reconstruye el árbol por `children`), imágenes en modo `'callout'` (marcador visible) o `'marker'` (placeholder con token, para que `SPEC 03` lo reemplace tras subir el archivo), y el primer `# Título` como título de página en vez de bloque. También `batch` (agrupa bloques de a 100, límite de bloques por request de la API de Notion). |
+| `blocks.ts` | `mdToBlocks`: mapea línea/estructura de markdown a bloque de Notion — headings `#`/`##`/`###`, párrafo, fence de código, listas con viñeta anidadas por indentación de a 4 espacios (`takeList`, reconstruye el árbol por `children`), listas numeradas anidadas de la misma forma (`takeNumberedList`, produce `numbered_list_item`, `SPEC 04`), imágenes en modo `'callout'` (marcador visible) o `'marker'` (placeholder con token, para que `SPEC 03` lo reemplace tras subir el archivo), y el primer `# Título` como título de página en vez de bloque. También `batch` (agrupa bloques de a 100, límite de bloques por request de la API de Notion). |
 
 ### `src/notion-client/`
 
