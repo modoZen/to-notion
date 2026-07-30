@@ -76,7 +76,7 @@ export async function runSync(options: RunSyncOptions): Promise<void> {
   const state = loadState(outDir);
   console.log(`Subiendo ${modules.length} módulo(s)${dryRun ? " (simulación)" : ""}`);
   for (const mod of modules) {
-    await pushModule(mod, join(outDir, mod.file), mediaDir, parentId, outDir, state, dryRun);
+    await pushModule(mod, join(outDir, mod.file), mediaDir, parentId, outDir, state, dryRun, false);
   }
   console.log("Listo.");
 }

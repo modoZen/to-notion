@@ -65,7 +65,7 @@ async function main(): Promise<void> {
   try {
     const mod = resolvePushModuleInput(mdPath, outDir);
     const state = loadState(outDir);
-    await pushModule(mod, mdPath, mediaDir, flags.parent, outDir, state, flags.dryRun);
+    await pushModule(mod, mdPath, mediaDir, flags.parent, outDir, state, flags.dryRun, false);
   } catch (err) {
     console.error(err instanceof Error ? err.message : String(err));
     process.exitCode = 1;

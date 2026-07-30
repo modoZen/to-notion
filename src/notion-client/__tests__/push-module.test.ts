@@ -47,11 +47,29 @@ describe("pushModule()", () => {
   it("salta un módulo ya done sin hacer ninguna llamada de red", async () => {
     const state: SyncState = { "parent-1": { modules: { "1": { pageId: "page-old", done: true } } } };
 
-    await pushModule(mod, join(dir, "no-existe.md"), mediaDir, "parent-1", dir, state, false);
+    await pushModule(mod, join(dir, "no-existe.md"), mediaDir, "parent-1", dir, state, false, false);
 
     expect(notionMock).not.toHaveBeenCalled();
     expect(uploadImageMock).not.toHaveBeenCalled();
     expect(saveStateMock).not.toHaveBeenCalled();
+  });
+
+  it("con force: true no saltea un módulo ya done: archiva la página vieja y crea una nueva", async () => {
+    const mdPath = writeMd("mod.md", "# Introducción\n\nHola mundo.\n");
+    const state: SyncState = { "parent-1": { modules: { "1": { pageId: "page-old", done: true } } } };
+    notionMock
+      .mockResolvedValueOnce({}) // PATCH archivar
+      .mockResolvedValueOnce({ id: "page-new", url: "https://notion.so/page-new" }); // POST /pages
+
+    await pushModule(mod, mdPath, mediaDir, "parent-1", dir, state, false, true);
+
+    expect(notionMock).toHaveBeenNthCalledWith(1, "PATCH", "/pages/page-old", { in_trash: true });
+    expect(notionMock).toHaveBeenNthCalledWith(
+      2,
+      "POST",
+      "/pages",
+      expect.objectContaining({ parent: { page_id: "parent-1" } }),
+    );
   });
 
   it("archiva la página de un intento previo incompleto antes de rehacer", async () => {
@@ -61,7 +79,7 @@ describe("pushModule()", () => {
       .mockResolvedValueOnce({}) // PATCH archivar
       .mockResolvedValueOnce({ id: "page-new", url: "https://notion.so/page-new" }); // POST /pages
 
-    await pushModule(mod, mdPath, mediaDir, "parent-1", dir, state, false);
+    await pushModule(mod, mdPath, mediaDir, "parent-1", dir, state, false, false);
 
     expect(notionMock).toHaveBeenNthCalledWith(1, "PATCH", "/pages/page-old", { in_trash: true });
     expect(notionMock).toHaveBeenNthCalledWith(
@@ -76,7 +94,7 @@ describe("pushModule()", () => {
     const mdPath = writeMd("mod.md", "# Introducción\n\nHola mundo.\n");
     const state: SyncState = {};
 
-    await pushModule(mod, mdPath, mediaDir, "parent-1", dir, state, true);
+    await pushModule(mod, mdPath, mediaDir, "parent-1", dir, state, true, false);
 
     expect(notionMock).not.toHaveBeenCalled();
     expect(uploadImageMock).not.toHaveBeenCalled();
@@ -88,7 +106,7 @@ describe("pushModule()", () => {
     const state: SyncState = {};
     notionMock.mockResolvedValueOnce({ id: "page-1", url: "https://notion.so/page-1" });
 
-    await pushModule(mod, mdPath, mediaDir, "parent-1", dir, state, false);
+    await pushModule(mod, mdPath, mediaDir, "parent-1", dir, state, false, false);
 
     expect(uploadImageMock).not.toHaveBeenCalled();
     const pageCall = notionMock.mock.calls.find((c) => c[0] === "POST" && c[1] === "/pages");
@@ -110,7 +128,7 @@ describe("pushModule()", () => {
       .mockResolvedValueOnce({}) // PATCH lote 2
       .mockResolvedValueOnce({}); // PATCH lote 3
 
-    await pushModule(mod, mdPath, mediaDir, "parent-1", dir, state, false);
+    await pushModule(mod, mdPath, mediaDir, "parent-1", dir, state, false, false);
 
     const patchCalls = notionMock.mock.calls.filter((c) => c[0] === "PATCH" && c[1] === "/blocks/page-1/children");
     expect(patchCalls).toHaveLength(2);
@@ -130,7 +148,7 @@ describe("pushModule()", () => {
       snapshots.push(JSON.parse(JSON.stringify(s)));
     });
 
-    await pushModule(mod, mdPath, mediaDir, "parent-1", dir, state, false);
+    await pushModule(mod, mdPath, mediaDir, "parent-1", dir, state, false, false);
 
     expect(snapshots).toHaveLength(2);
     expect(snapshots[0]["parent-1"].modules["1"]).toEqual({ pageId: "page-1", done: false });

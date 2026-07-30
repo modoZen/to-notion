@@ -14,12 +14,13 @@ export async function pushModule(
   outDir: string,
   state: SyncState,
   dryRun: boolean,
+  force: boolean,
 ): Promise<void> {
   const key = String(mod.number);
   const bucket = (state[parentId] ||= { modules: {} });
   const prev = bucket.modules[key];
 
-  if (prev && prev.done) {
+  if (prev && prev.done && !force) {
     console.log(`  ${key}. ${mod.title} — ya estaba subido, se salta`);
     return;
   }
