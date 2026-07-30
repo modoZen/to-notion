@@ -5,9 +5,10 @@ código, imágenes) en subpáginas de Notion, colgadas de la fila del curso
 correspondiente en una base `Cursos`. El pipeline completo tiene dos etapas:
 
 1. `.docx` → markdown + imágenes extraídas (cacheado en disco, revisable por
-   un humano). **Esto es lo que hay implementado hasta ahora** (`SPEC 01`).
-2. markdown → bloques de Notion, subidos vía la API (`SPEC 02` en adelante,
-   todavía no implementado).
+   un humano) (`SPEC 01`).
+2. markdown → bloques de Notion (`SPEC 02`). **Esto es lo que hay
+   implementado hasta ahora.** Todavía no sube nada a la API real: eso es
+   `SPEC 03` en adelante.
 
 Este repo es público. Los `.docx` de origen y todo lo generado en
 `workspace/` (markdown, imágenes, manifest) son contenido de cursos pagos
@@ -28,6 +29,7 @@ npm install
 npm run typecheck   # tsc --noEmit
 npm test            # vitest run
 npm run convert -- <ruta/al/archivo.docx>
+npm run blocks -- <ruta/al/modulo.md>
 ```
 
 `npm run convert` escribe la salida en `workspace/<slug-del-docx>/`:
@@ -44,6 +46,12 @@ workspace/<slug>/
 Si `workspace/<slug>/manifest.json` ya existe, la conversión se reusa tal
 cual está: no se vuelve a invocar pandoc ni a reconvertir. Para forzar una
 reconversión, borrá la carpeta `workspace/<slug>/` a mano.
+
+`npm run blocks -- <ruta/al/modulo.md>` toma un `.md` ya generado por
+`npm run convert` (típicamente `workspace/<slug>/modules/NN-titulo.md`) y
+vuelca por stdout el JSON de bloques de Notion resultante (`{ blocks, images
+}`), sin escribir nada nuevo en disco. Sirve para revisar a mano el mapeo
+markdown → Notion antes de que exista un cliente real (`SPEC 03`).
 
 ## Estructura de archivos
 
@@ -62,11 +70,21 @@ reconversión, borrá la carpeta `workspace/<slug>/` a mano.
 | `pandoc.ts` | Invoca pandoc (`docx` → markdown crudo + medios extraídos). Si pandoc no está en el `PATH`, lanza un mensaje de error específico y legible (no el genérico que resultaría de portar la condición del prototipo tal cual). |
 | `convert.ts` | Orquesta todo lo anterior: reuso de caché por `manifest.json`, pandoc → tokenizer → módulos → clasificación → render, escritura de `modules/`, `media/`, `manifest.json` y `report.txt`. |
 
+### `src/md-to-notion/`
+
+| Archivo | Responsabilidad |
+| --- | --- |
+| `types.ts` | Tipos del mapeo markdown → Notion (`RichText`, `RichTextAnnotations`, `NotionBlock`, `ImageMode`, `MdToBlocksOptions`, `MdToBlocksResult`). Interfaces propias y mínimas, no el SDK oficial de Notion (`@notionhq/client` se evalúa en `SPEC 03`, que es la que toca la red). |
+| `rich-text.ts` | Rich text en línea: `parseInline` (negrita, cursiva, código, enlaces `[texto](url)`, URLs sueltas, escapes de pandoc), `makeText`, `annotate`, y `splitRichText` (parte cualquier fragmento de más de 2000 caracteres, cortando en espacio/salto de línea cuando es posible). Constantes `MAX_TEXT`/`MAX_BLOCKS`. |
+| `lang.ts` | `NOTION_LANGS` (lista cerrada de lenguajes que acepta el bloque `code` de Notion) y `safeLang` (normaliza y cae a `'plain text'` si el lenguaje no está soportado). |
+| `blocks.ts` | `mdToBlocks`: mapea línea/estructura de markdown a bloque de Notion — headings `#`/`##`/`###`, párrafo, fence de código, listas con viñeta anidadas por indentación de a 4 espacios (`takeList`, reconstruye el árbol por `children`), imágenes en modo `'callout'` (marcador visible) o `'marker'` (placeholder con token, para que `SPEC 03` lo reemplace tras subir el archivo), y el primer `# Título` como título de página en vez de bloque. También `batch` (agrupa bloques de a 100, límite de bloques por request de la API de Notion). |
+
 ### `src/cli/`
 
 | Archivo | Responsabilidad |
 | --- | --- |
 | `convert.ts` | Entrypoint de `npm run convert -- <ruta.docx>`. Llama a `convertDocx`, imprime el reporte y la carpeta de salida, o el error con código de salida distinto de cero. |
+| `blocks.ts` | Entrypoint de `npm run blocks -- <ruta/al/modulo.md>`. Llama a `mdToBlocks` sobre el markdown leído e imprime `{ blocks, images }` por stdout como JSON, sin tocar disco. |
 
 ## Tests
 
@@ -80,15 +98,18 @@ reconversión, borrá la carpeta `workspace/<slug>/` a mano.
   tests se saltan automáticamente si pandoc no está instalado en la máquina
   que corre los tests. **Validar el pipeline completo requiere tener pandoc
   instalado localmente.**
+- Los tests de `src/md-to-notion/` usan fixtures de markdown escritos a mano
+  y no invocan pandoc ni red. La comparación 1:1 del JSON de bloques contra
+  `references/notion-sync.js` (Parte 2) se hace a mano sobre los módulos
+  reales de un `.docx` ya convertido (no está en CI, ese `.docx` tampoco se
+  commitea).
 
 ## Notas de diseño
 
-- **`safeLang`/lista de lenguajes de Notion**: el prototipo mapea el
-  lenguaje detectado a la lista cerrada de lenguajes que acepta el bloque de
-  código de Notion (con `'plain text'` como fallback). Ese mapeo es una
-  preocupación de la etapa markdown → Notion (`SPEC 02`) y no está portado
-  acá: `render.ts` emite el fence con el lenguaje que devuelve `detectLanguage`
-  directo.
+- **`safeLang`/lista de lenguajes de Notion**: `render.ts` (`SPEC 01`) emite
+  el fence con el lenguaje que devuelve `detectLanguage` directo, sin
+  mapearlo a la lista cerrada de Notion. Ese mapeo es responsabilidad de la
+  etapa markdown → Notion y vive en `src/md-to-notion/lang.ts` (`SPEC 02`).
 - **`mixedProse`** usa un regex genérico para "quitarle la sintaxis" a una
   línea y ver si sobra una oración en español. Ese regex puede interpretar
   una palabra suelta seguida de paréntesis (`y (...)`) como si fuera una
