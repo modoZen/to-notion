@@ -35,7 +35,7 @@ export async function pushModule(
   // única forma barata de no dejar duplicados ni bloques repetidos.
   if (prev && prev.pageId) {
     console.log("    intento anterior incompleto, archivando esa página");
-    await notion("PATCH", `/pages/${prev.pageId}`, { archived: true });
+    await notion("PATCH", `/pages/${prev.pageId}`, { in_trash: true });
   }
 
   const idByToken: Record<string, string> = {};

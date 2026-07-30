@@ -63,7 +63,7 @@ describe("pushModule()", () => {
 
     await pushModule(mod, mdPath, mediaDir, "parent-1", dir, state, false);
 
-    expect(notionMock).toHaveBeenNthCalledWith(1, "PATCH", "/pages/page-old", { archived: true });
+    expect(notionMock).toHaveBeenNthCalledWith(1, "PATCH", "/pages/page-old", { in_trash: true });
     expect(notionMock).toHaveBeenNthCalledWith(
       2,
       "POST",
