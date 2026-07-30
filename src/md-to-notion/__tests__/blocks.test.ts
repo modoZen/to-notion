@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { mdToBlocks } from "../blocks.ts";
+import { batch, mdToBlocks } from "../blocks.ts";
+import type { NotionBlock } from "../types.ts";
 
 describe("mdToBlocks", () => {
   it("mapea headings # ## ### a heading_1/2/3 con is_toggleable: false", () => {
@@ -233,5 +234,37 @@ describe("mdToBlocks", () => {
   it("sin línea de título: el primer heading se mantiene como bloque", () => {
     const { blocks } = mdToBlocks("## No es título de página\n\nUn párrafo.");
     expect(blocks.map((b) => b.type)).toEqual(["heading_2", "paragraph"]);
+  });
+});
+
+function paragraph(content: string): NotionBlock {
+  return { object: "block", type: "paragraph", paragraph: { rich_text: [{ type: "text", text: { content } }] } };
+}
+
+describe("batch", () => {
+  it("con menos de 100 bloques devuelve un solo lote", () => {
+    const blocks = Array.from({ length: 30 }, (_, i) => paragraph(String(i)));
+    const out = batch(blocks);
+
+    expect(out.length).toBe(1);
+    expect(out[0]).toEqual(blocks);
+  });
+
+  it("con más de 100 bloques los agrupa en lotes de a 100", () => {
+    const blocks = Array.from({ length: 250 }, (_, i) => paragraph(String(i)));
+    const out = batch(blocks);
+
+    expect(out.length).toBe(3);
+    expect(out[0].length).toBe(100);
+    expect(out[1].length).toBe(100);
+    expect(out[2].length).toBe(50);
+    expect(out.flat()).toEqual(blocks);
+  });
+
+  it("respeta un tamaño de lote personalizado", () => {
+    const blocks = Array.from({ length: 5 }, (_, i) => paragraph(String(i)));
+    const out = batch(blocks, 2);
+
+    expect(out).toEqual([[blocks[0], blocks[1]], [blocks[2], blocks[3]], [blocks[4]]]);
   });
 });

@@ -1,5 +1,5 @@
 import { safeLang } from "./lang.ts";
-import { makeText, parseInline, splitRichText } from "./rich-text.ts";
+import { MAX_BLOCKS, makeText, parseInline, splitRichText } from "./rich-text.ts";
 import type { ImageMode, MdToBlocksOptions, MdToBlocksResult, NotionBlock } from "./types.ts";
 
 const B_HEADING = /^(#{1,3})\s+(.*)$/;
@@ -167,4 +167,11 @@ function takeList(lines: string[], start: number): [number, NotionBlock[]] {
     stack.push(block);
   }
   return [i, roots];
+}
+
+/** Lotes de 100: el primero va en el create, el resto por PATCH children. */
+export function batch(blocks: NotionBlock[], size: number = MAX_BLOCKS): NotionBlock[][] {
+  const out: NotionBlock[][] = [];
+  for (let i = 0; i < blocks.length; i += size) out.push(blocks.slice(i, i + size));
+  return out;
 }
