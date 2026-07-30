@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "convert": "node src/cli/convert.ts",
     "blocks": "node src/cli/blocks.ts",
-    "push": "node src/cli/push.ts"
+    "push": "node src/cli/push.ts",
+    "sync": "node src/cli/sync.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
