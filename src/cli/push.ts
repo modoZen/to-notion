@@ -12,16 +12,18 @@ interface Flags {
   media?: string;
   parent?: string;
   dryRun: boolean;
+  force: boolean;
 }
 
 function parseFlags(argv: string[]): Flags {
-  const flags: Flags = { dryRun: false };
+  const flags: Flags = { dryRun: false, force: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--modulo") flags.modulo = argv[++i];
     else if (arg === "--media") flags.media = argv[++i];
     else if (arg === "--parent") flags.parent = argv[++i];
     else if (arg === "--dry-run") flags.dryRun = true;
+    else if (arg === "--force") flags.force = true;
   }
   return flags;
 }
@@ -51,7 +53,9 @@ function resolvePushModuleInput(mdPath: string, outDir: string): PushModuleInput
 async function main(): Promise<void> {
   const flags = parseFlags(process.argv.slice(2));
   if (!flags.modulo || !flags.media || !flags.parent) {
-    console.error("Uso: npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID> [--dry-run]");
+    console.error(
+      "Uso: npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID> [--dry-run] [--force]",
+    );
     process.exitCode = 1;
     return;
   }
@@ -65,7 +69,7 @@ async function main(): Promise<void> {
   try {
     const mod = resolvePushModuleInput(mdPath, outDir);
     const state = loadState(outDir);
-    await pushModule(mod, mdPath, mediaDir, flags.parent, outDir, state, flags.dryRun, false);
+    await pushModule(mod, mdPath, mediaDir, flags.parent, outDir, state, flags.dryRun, flags.force);
   } catch (err) {
     console.error(err instanceof Error ? err.message : String(err));
     process.exitCode = 1;

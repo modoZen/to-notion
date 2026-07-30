@@ -44,12 +44,14 @@ describe("parseArgv()", () => {
       parentId: "parent-1",
       moduleNumber: 3,
       dryRun: true,
+      force: false,
     });
     expect(parseArgv(["curso.docx", "parent-1", "3", "--dry-run"])).toEqual({
       docxPath: "curso.docx",
       parentId: "parent-1",
       moduleNumber: 3,
       dryRun: true,
+      force: false,
     });
   });
 
@@ -59,6 +61,24 @@ describe("parseArgv()", () => {
       parentId: "parent-1",
       moduleNumber: undefined,
       dryRun: false,
+      force: false,
+    });
+  });
+
+  it("reconoce --force en cualquier posición junto con MODULO_N", () => {
+    expect(parseArgv(["curso.docx", "parent-1", "3", "--force"])).toEqual({
+      docxPath: "curso.docx",
+      parentId: "parent-1",
+      moduleNumber: 3,
+      dryRun: false,
+      force: true,
+    });
+    expect(parseArgv(["--force", "curso.docx", "parent-1", "3"])).toEqual({
+      docxPath: "curso.docx",
+      parentId: "parent-1",
+      moduleNumber: 3,
+      dryRun: false,
+      force: true,
     });
   });
 });
@@ -84,29 +104,29 @@ describe("runSync()", () => {
 
   it("lanza un error claro si el .docx no existe en disco, antes de invocar convertDocx", async () => {
     const noExiste = join(dir, "no-existe.docx");
-    await expect(runSync({ docxPath: noExiste, parentId: "parent-1", dryRun: true })).rejects.toThrow(
-      `No existe ${noExiste}`,
-    );
+    await expect(
+      runSync({ docxPath: noExiste, parentId: "parent-1", dryRun: true, force: false }),
+    ).rejects.toThrow(`No existe ${noExiste}`);
     expect(convertDocxMock).not.toHaveBeenCalled();
   });
 
   it("con MODULO_N válido filtra a un solo módulo y llama pushModule una sola vez", async () => {
-    await runSync({ docxPath, parentId: "parent-1", moduleNumber: 2, dryRun: true });
+    await runSync({ docxPath, parentId: "parent-1", moduleNumber: 2, dryRun: true, force: false });
 
     expect(pushModuleMock).toHaveBeenCalledTimes(1);
     expect(pushModuleMock.mock.calls[0][0]).toEqual(expect.objectContaining({ number: 2, title: "Dos" }));
   });
 
   it("con MODULO_N inválido produce el mensaje exacto y no llama a notion ni a pushModule", async () => {
-    await expect(runSync({ docxPath, parentId: "parent-1", moduleNumber: 99, dryRun: false })).rejects.toThrow(
-      "No hay módulo 99. Van del 1 al 3.",
-    );
+    await expect(
+      runSync({ docxPath, parentId: "parent-1", moduleNumber: 99, dryRun: false, force: false }),
+    ).rejects.toThrow("No hay módulo 99. Van del 1 al 3.");
     expect(notionMock).not.toHaveBeenCalled();
     expect(pushModuleMock).not.toHaveBeenCalled();
   });
 
   it("con --dry-run salta el chequeo de padre pero llama a pushModule con dryRun: true para cada módulo", async () => {
-    await runSync({ docxPath, parentId: "parent-1", dryRun: true });
+    await runSync({ docxPath, parentId: "parent-1", dryRun: true, force: false });
 
     expect(notionMock).not.toHaveBeenCalled();
     expect(pushModuleMock).toHaveBeenCalledTimes(3);
@@ -120,7 +140,7 @@ describe("runSync()", () => {
       properties: { Name: { type: "title", title: [{ plain_text: "Mi Curso" }] } },
     });
 
-    await runSync({ docxPath, parentId: "abc-def-123", dryRun: false });
+    await runSync({ docxPath, parentId: "abc-def-123", dryRun: false, force: false });
 
     expect(notionMock).toHaveBeenCalledWith("GET", "/pages/abcdef123");
     expect(pushModuleMock).toHaveBeenCalledTimes(3);
@@ -132,7 +152,7 @@ describe("runSync()", () => {
   it("chequeo de padre fallido aborta antes de cualquier pushModule", async () => {
     notionMock.mockRejectedValueOnce(new Error("GET /pages/parent-1 -> 403: forbidden"));
 
-    await expect(runSync({ docxPath, parentId: "parent-1", dryRun: false })).rejects.toThrow("403");
+    await expect(runSync({ docxPath, parentId: "parent-1", dryRun: false, force: false })).rejects.toThrow("403");
     expect(pushModuleMock).not.toHaveBeenCalled();
   });
 
@@ -140,7 +160,25 @@ describe("runSync()", () => {
     pushModuleMock.mockReset();
     pushModuleMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("falló el módulo 2"));
 
-    await expect(runSync({ docxPath, parentId: "parent-1", dryRun: true })).rejects.toThrow("falló el módulo 2");
+    await expect(runSync({ docxPath, parentId: "parent-1", dryRun: true, force: false })).rejects.toThrow(
+      "falló el módulo 2",
+    );
     expect(pushModuleMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("--force sin MODULO_N produce un error de uso claro y no llama a pushModule ni a notion", async () => {
+    await expect(
+      runSync({ docxPath, parentId: "parent-1", dryRun: false, force: true }),
+    ).rejects.toThrow("--force requiere especificar MODULO_N");
+    expect(convertDocxMock).not.toHaveBeenCalled();
+    expect(notionMock).not.toHaveBeenCalled();
+    expect(pushModuleMock).not.toHaveBeenCalled();
+  });
+
+  it("--force con MODULO_N válido llama a pushModule con force: true para ese módulo", async () => {
+    await runSync({ docxPath, parentId: "parent-1", moduleNumber: 2, dryRun: true, force: true });
+
+    expect(pushModuleMock).toHaveBeenCalledTimes(1);
+    expect(pushModuleMock.mock.calls[0][7]).toBe(true);
   });
 });
