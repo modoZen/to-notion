@@ -10,7 +10,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "convert": "node src/cli/convert.ts",
-    "blocks": "node src/cli/blocks.ts"
+    "blocks": "node src/cli/blocks.ts",
+    "push": "node src/cli/push.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",
