@@ -125,22 +125,22 @@ Conventions:
 
 ## Acceptance criteria
 
-- [ ] `npm run typecheck` y `npm test` pasan sin errores con los archivos nuevos de `src/notion-client/` y `src/cli/push.ts`.
-- [ ] Cada función de la sección Data model tiene al menos un test: `notion`, `loadEnv`, `uploadImage`, `resolveImages`, `loadState`, `saveState`, `pushModule`.
-- [ ] `notion()` respeta el header `Retry-After` en una respuesta 429 antes de reintentar (verificado con `fetch` mockeado y `vi.useFakeTimers()`, sin esperar tiempo real).
-- [ ] `notion()` reintenta una respuesta 5xx con backoff exponencial hasta `MAX_RETRIES` y luego lanza error.
-- [ ] `notion()` lanza un error claro si `NOTION_TOKEN` no está seteado.
-- [ ] `uploadImage()` rechaza un archivo que supera 20 MiB con un error que menciona el tamaño.
-- [ ] `resolveImages()` reemplaza un bloque `_marker` por un bloque `image` real cuando hay id disponible, y deja el bloque de texto original cuando falta el id.
-- [ ] `loadState()` devuelve `{}` si el archivo de estado no existe; un ciclo `saveState()` + `loadState()` conserva la forma de `SyncState`.
-- [ ] `pushModule()` salta un módulo ya `done` sin hacer ninguna llamada de red.
-- [ ] `pushModule()` archiva la página de un intento previo incompleto (`pageId` sin `done`) antes de rehacer la subida.
-- [ ] `pushModule()` con `dryRun: true` calcula bloques e imágenes pero no hace ninguna llamada de red ni escribe estado.
-- [ ] `pushModule()` con más de 100 bloques dispara varios `PATCH /blocks/:id/children` en el orden correcto.
-- [ ] `pushModule()` guarda el estado después de crear la página y de nuevo al terminar (dos escrituras verificables en el test).
-- [ ] `npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID> --dry-run` corre sobre un módulo real generado por SPEC 01, imprime el resumen de bloques/imágenes y no hace ninguna llamada de red. (Verificado a mano.)
-- [ ] `npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID>` (sin `--dry-run`), con `NOTION_TOKEN` real y una página padre real, crea la página en Notion con el contenido esperado. (Verificado a mano, no en CI.)
-- [ ] `README.md` documenta el árbol de archivos de `src/notion-client/` y la fila `push.ts` en la tabla de `src/cli/`.
+- [x] `npm run typecheck` y `npm test` pasan sin errores con los archivos nuevos de `src/notion-client/` y `src/cli/push.ts`.
+- [x] Cada función de la sección Data model tiene al menos un test: `notion`, `loadEnv`, `uploadImage`, `resolveImages`, `loadState`, `saveState`, `pushModule`.
+- [x] `notion()` respeta el header `Retry-After` en una respuesta 429 antes de reintentar (verificado con `fetch` mockeado y `vi.useFakeTimers()`, sin esperar tiempo real).
+- [x] `notion()` reintenta una respuesta 5xx con backoff exponencial hasta `MAX_RETRIES` y luego lanza error.
+- [x] `notion()` lanza un error claro si `NOTION_TOKEN` no está seteado.
+- [x] `uploadImage()` rechaza un archivo que supera 20 MiB con un error que menciona el tamaño.
+- [x] `resolveImages()` reemplaza un bloque `_marker` por un bloque `image` real cuando hay id disponible, y deja el bloque de texto original cuando falta el id.
+- [x] `loadState()` devuelve `{}` si el archivo de estado no existe; un ciclo `saveState()` + `loadState()` conserva la forma de `SyncState`.
+- [x] `pushModule()` salta un módulo ya `done` sin hacer ninguna llamada de red.
+- [x] `pushModule()` archiva la página de un intento previo incompleto (`pageId` sin `done`) antes de rehacer la subida.
+- [x] `pushModule()` con `dryRun: true` calcula bloques e imágenes pero no hace ninguna llamada de red ni escribe estado.
+- [x] `pushModule()` con más de 100 bloques dispara varios `PATCH /blocks/:id/children` en el orden correcto.
+- [x] `pushModule()` guarda el estado después de crear la página y de nuevo al terminar (dos escrituras verificables en el test).
+- [x] `npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID> --dry-run` corre sobre un módulo real generado por SPEC 01, imprime el resumen de bloques/imágenes y no hace ninguna llamada de red. (Verificado a mano.)
+- [x] `npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID>` (sin `--dry-run`), con `NOTION_TOKEN` real y una página padre real, crea la página en Notion con el contenido esperado. (Verificado a mano, no en CI.)
+- [x] `README.md` documenta el árbol de archivos de `src/notion-client/` y la fila `push.ts` en la tabla de `src/cli/`.
 
 ---
 
