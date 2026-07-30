@@ -21,3 +21,23 @@ export interface PushModuleInput {
   number: number;
   title: string;
 }
+
+export interface CourseRegistryEntry {
+  pageId: string;
+  docxFileName: string; // basename tal cual (ej. "curso-x.docx"), no ruta completa
+  docxHash: string; // sha256 hex del contenido del .docx, calculado por el caller
+  createdAt: string; // ISO, se fija una sola vez al registrar el slug por primera vez
+  lastSyncedAt: string; // ISO, se actualiza en cada upsertCourse
+}
+
+// Clave: slug (mismo que slugify() en docx-to-md/modules.ts, y el mismo
+// que usa workspace/<slug>/). Persistido en <workspaceRoot>/course-registry.json.
+export type CourseRegistry = Record<string, CourseRegistryEntry>;
+
+// Campos que el caller de upsertCourse debe proveer explícitamente;
+// createdAt/lastSyncedAt los calcula upsertCourse internamente.
+export interface NewCourseEntry {
+  pageId: string;
+  docxFileName: string;
+  docxHash: string;
+}
