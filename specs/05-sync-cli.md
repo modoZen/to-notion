@@ -1,6 +1,6 @@
 # SPEC 05 — CLI de orquestación end-to-end (sync)
 
-> **Status:** Aprobado
+> **Status:** Implementado
 > **Depends on:** SPEC 01 (`convertDocx`), SPEC 02 (`mdToBlocks` vía `pushModule`), SPEC 03 (`notion`, `loadState`/`saveState`, `pushModule`)
 > **Date:** 2026-07-30
 > **Objective:** Agregar `src/cli/sync.ts` (`npm run sync`), el CLI que convierte un `.docx` completo y sube todos sus módulos a Notion en una sola corrida (o uno puntual con `MODULO_N`), incluyendo `--dry-run` y el chequeo de acceso a la página padre — cerrando los dos riesgos que SPEC 03 dejó documentados como pendientes para esta spec.
@@ -78,19 +78,19 @@ Conventions:
 
 ## Acceptance criteria
 
-- [ ] `npm run typecheck` y `npm test` pasan sin errores con los archivos nuevos (`src/cli/sync.ts`, `src/cli/__tests__/sync.test.ts`).
-- [ ] `runSync` con `MODULO_N` válido llama a `pushModule` exactamente una vez, con el módulo correcto. (Test.)
-- [ ] `runSync` con `MODULO_N` inválido produce el error `"No hay módulo N. Van del 1 al <total>."`, y no llama a `notion` ni a `pushModule`. (Test.)
-- [ ] `runSync` con `--dry-run` no llama a `notion` (chequeo de padre salteado) pero sí llama a `pushModule` con `dryRun: true` para cada módulo filtrado. (Test.)
-- [ ] `runSync` sin `--dry-run` llama a `notion('GET', '/pages/...')` antes de cualquier `pushModule`; si esa llamada falla, aborta sin llamar a `pushModule`. (Test.)
-- [ ] `runSync` con más de un módulo aborta el resto del loop si `pushModule` rechaza en un módulo intermedio — no se llama a `pushModule` para los módulos siguientes al que falló. (Test.)
-- [ ] `parseArgv` devuelve `null` si falta `docx` o `parentId`; reconoce `MODULO_N` y `--dry-run` en cualquier posición. (Test.)
-- [ ] `runSync` lanza un error claro si el `.docx` no existe en disco, antes de invocar `convertDocx`. (Test.)
-- [ ] `npm run sync -- <docx-real> <PARENT_PAGE_ID>` corrido a mano contra un curso real y una página padre real de Notion sube todos los módulos como subpáginas — confirmado visualmente. (Verificado a mano, no en CI.)
-- [ ] Repetir la misma corrida: cada módulo se saltea con el log `"— ya estaba subido, se salta"`, sin ninguna llamada de red (verificado por ausencia de nuevas páginas/cambios en Notion). (Verificado a mano.)
-- [ ] `npm run sync -- <docx-real> <PARENT_PAGE_ID> N` sube o rehace solo el módulo `N`, dejando el resto sin tocar. (Verificado a mano.)
-- [ ] `README.md` refleja el CLI real (`npm run sync`) en vez de la frase "todavía no existe", incluye `sync.ts` en la tabla de `src/cli/` y el ejemplo de uso en "Instalar y correr".
-- [ ] `package.json` tiene el script `"sync": "node src/cli/sync.ts"`.
+- [x] `npm run typecheck` y `npm test` pasan sin errores con los archivos nuevos (`src/cli/sync.ts`, `src/cli/__tests__/sync.test.ts`).
+- [x] `runSync` con `MODULO_N` válido llama a `pushModule` exactamente una vez, con el módulo correcto. (Test.)
+- [x] `runSync` con `MODULO_N` inválido produce el error `"No hay módulo N. Van del 1 al <total>."`, y no llama a `notion` ni a `pushModule`. (Test.)
+- [x] `runSync` con `--dry-run` no llama a `notion` (chequeo de padre salteado) pero sí llama a `pushModule` con `dryRun: true` para cada módulo filtrado. (Test.)
+- [x] `runSync` sin `--dry-run` llama a `notion('GET', '/pages/...')` antes de cualquier `pushModule`; si esa llamada falla, aborta sin llamar a `pushModule`. (Test.)
+- [x] `runSync` con más de un módulo aborta el resto del loop si `pushModule` rechaza en un módulo intermedio — no se llama a `pushModule` para los módulos siguientes al que falló. (Test.)
+- [x] `parseArgv` devuelve `null` si falta `docx` o `parentId`; reconoce `MODULO_N` y `--dry-run` en cualquier posición. (Test.)
+- [x] `runSync` lanza un error claro si el `.docx` no existe en disco, antes de invocar `convertDocx`. (Test.)
+- [x] `npm run sync -- <docx-real> <PARENT_PAGE_ID>` corrido a mano contra un curso real y una página padre real de Notion sube todos los módulos como subpáginas — confirmado visualmente. (Verificado a mano, no en CI.)
+- [x] Repetir la misma corrida: cada módulo se saltea con el log `"— ya estaba subido, se salta"`, sin ninguna llamada de red (verificado por ausencia de nuevas páginas/cambios en Notion). (Verificado a mano.)
+- [x] `npm run sync -- <docx-real> <PARENT_PAGE_ID> N` sube o rehace solo el módulo `N`, dejando el resto sin tocar. (Verificado a mano.)
+- [x] `README.md` refleja el CLI real (`npm run sync`) en vez de la frase "todavía no existe", incluye `sync.ts` en la tabla de `src/cli/` y el ejemplo de uso en "Instalar y correr".
+- [x] `package.json` tiene el script `"sync": "node src/cli/sync.ts"`.
 
 ---
 
