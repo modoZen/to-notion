@@ -104,4 +104,83 @@ describe("mdToBlocks", () => {
     const { blocks } = mdToBlocks("Primero.\n\n\nSegundo.");
     expect(blocks.map((b) => b.type)).toEqual(["paragraph", "paragraph"]);
   });
+
+  it("lista simple con viñeta produce bulleted_list_item por línea", () => {
+    const { blocks } = mdToBlocks("- uno\n- dos\n- tres");
+
+    expect(blocks).toEqual([
+      {
+        object: "block",
+        type: "bulleted_list_item",
+        bulleted_list_item: { rich_text: [{ type: "text", text: { content: "uno" } }] },
+      },
+      {
+        object: "block",
+        type: "bulleted_list_item",
+        bulleted_list_item: { rich_text: [{ type: "text", text: { content: "dos" } }] },
+      },
+      {
+        object: "block",
+        type: "bulleted_list_item",
+        bulleted_list_item: { rich_text: [{ type: "text", text: { content: "tres" } }] },
+      },
+    ]);
+  });
+
+  it("lista anidada a dos niveles produce children dentro del item padre", () => {
+    const md = "- padre 1\n    - hijo 1.1\n    - hijo 1.2\n- padre 2";
+    const { blocks } = mdToBlocks(md);
+
+    expect(blocks).toEqual([
+      {
+        object: "block",
+        type: "bulleted_list_item",
+        bulleted_list_item: {
+          rich_text: [{ type: "text", text: { content: "padre 1" } }],
+          children: [
+            {
+              object: "block",
+              type: "bulleted_list_item",
+              bulleted_list_item: { rich_text: [{ type: "text", text: { content: "hijo 1.1" } }] },
+            },
+            {
+              object: "block",
+              type: "bulleted_list_item",
+              bulleted_list_item: { rich_text: [{ type: "text", text: { content: "hijo 1.2" } }] },
+            },
+          ],
+        },
+      },
+      {
+        object: "block",
+        type: "bulleted_list_item",
+        bulleted_list_item: { rich_text: [{ type: "text", text: { content: "padre 2" } }] },
+      },
+    ]);
+  });
+
+  it("una línea en blanco no corta la lista si sigue habiendo viñetas después", () => {
+    const md = "- uno\n\n- dos";
+    const { blocks } = mdToBlocks(md);
+
+    expect(blocks).toEqual([
+      {
+        object: "block",
+        type: "bulleted_list_item",
+        bulleted_list_item: { rich_text: [{ type: "text", text: { content: "uno" } }] },
+      },
+      {
+        object: "block",
+        type: "bulleted_list_item",
+        bulleted_list_item: { rich_text: [{ type: "text", text: { content: "dos" } }] },
+      },
+    ]);
+  });
+
+  it("una línea en blanco sí corta la lista si lo que sigue no es una viñeta", () => {
+    const md = "- uno\n\nPárrafo después.";
+    const { blocks } = mdToBlocks(md);
+
+    expect(blocks.map((b) => b.type)).toEqual(["bulleted_list_item", "paragraph"]);
+  });
 });
