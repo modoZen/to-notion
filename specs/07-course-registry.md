@@ -1,6 +1,6 @@
 # SPEC 07 — Registro cross-course (course-registry)
 
-> **Status:** Aprobado
+> **Status:** Implementado
 > **Depends on:** SPEC 01 (`slugify` en `src/docx-to-md/modules.ts`), SPEC 03 (convención de persistencia de estado — mutación en el lugar + `load*`/`save*` — ya usada en `src/notion-client/state.ts`)
 > **Date:** 2026-07-30
 > **Objective:** Agregar un módulo de registro cross-course (`workspace/course-registry.json`), separado del estado por-módulo existente (`.notion-sync-state.json`), que guarde por curso — bajo la misma clave `slug` que ya usa `workspace/<slug>/` — el `pageId` de su fila en `Cursos`, nombre y hash del `.docx` origen, y fechas de alta/última sincronización; sin wiring a `sync.ts`/`push.ts` todavía, como preámbulo para `course.create` (fase 2).
@@ -104,16 +104,16 @@ Conventions:
 
 ## Acceptance criteria
 
-- [ ] `npm run typecheck` y `npm test` pasan sin errores con los archivos nuevos (`src/notion-client/registry.ts`, `src/notion-client/__tests__/registry.test.ts`) y los tipos agregados a `src/notion-client/types.ts`.
-- [ ] `loadRegistry(workspaceRoot)` devuelve `{}` si `<workspaceRoot>/course-registry.json` no existe. (Test.)
-- [ ] Un round-trip `saveRegistry` + `loadRegistry` conserva exactamente la forma de `CourseRegistry` guardada. (Test.)
-- [ ] `upsertCourse` con un slug nuevo crea la entrada con `createdAt === lastSyncedAt` (mismo timestamp). (Test.)
-- [ ] `upsertCourse` con un slug existente y el mismo `docxFileName` actualiza `pageId`, `docxHash` y `lastSyncedAt`, y conserva el `createdAt` original sin modificarlo. (Test.)
-- [ ] `upsertCourse` con un slug existente pero `docxFileName` distinto lanza un `Error` con mensaje que menciona el slug y ambos nombres de archivo (viejo y nuevo). (Test.)
-- [ ] En el caso de colisión, `registry` queda exactamente igual que antes de la llamada — `upsertCourse` no muta nada al lanzar. (Test.)
-- [ ] `registryPath(workspaceRoot)` usa `"workspace"` como default cuando no se pasa `workspaceRoot`. (Test.)
-- [ ] `README.md` incluye la fila de `registry.ts` en la tabla de `src/notion-client/`, describiendo qué persiste y aclarando que todavía no está conectado a `sync.ts`/`push.ts`.
-- [ ] No hay ningún cambio en `sync.ts`, `push.ts`, `package.json` ni en `.notion-sync-state.json` / su lógica existente — el registro es un archivo y módulo completamente nuevos y separados.
+- [x] `npm run typecheck` y `npm test` pasan sin errores con los archivos nuevos (`src/notion-client/registry.ts`, `src/notion-client/__tests__/registry.test.ts`) y los tipos agregados a `src/notion-client/types.ts`.
+- [x] `loadRegistry(workspaceRoot)` devuelve `{}` si `<workspaceRoot>/course-registry.json` no existe. (Test.)
+- [x] Un round-trip `saveRegistry` + `loadRegistry` conserva exactamente la forma de `CourseRegistry` guardada. (Test.)
+- [x] `upsertCourse` con un slug nuevo crea la entrada con `createdAt === lastSyncedAt` (mismo timestamp). (Test.)
+- [x] `upsertCourse` con un slug existente y el mismo `docxFileName` actualiza `pageId`, `docxHash` y `lastSyncedAt`, y conserva el `createdAt` original sin modificarlo. (Test.)
+- [x] `upsertCourse` con un slug existente pero `docxFileName` distinto lanza un `Error` con mensaje que menciona el slug y ambos nombres de archivo (viejo y nuevo). (Test.)
+- [x] En el caso de colisión, `registry` queda exactamente igual que antes de la llamada — `upsertCourse` no muta nada al lanzar. (Test.)
+- [x] `registryPath(workspaceRoot)` usa `"workspace"` como default cuando no se pasa `workspaceRoot`. (Test.)
+- [x] `README.md` incluye la fila de `registry.ts` en la tabla de `src/notion-client/`, describiendo qué persiste y aclarando que todavía no está conectado a `sync.ts`/`push.ts`.
+- [x] No hay ningún cambio en `sync.ts`, `push.ts`, `package.json` ni en `.notion-sync-state.json` / su lógica existente — el registro es un archivo y módulo completamente nuevos y separados.
 
 ---
 
