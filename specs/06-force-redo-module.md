@@ -1,6 +1,6 @@
 # SPEC 06 — Rehacer un módulo con --force: fix de archivado (in_trash) y reposicionamiento
 
-> **Status:** Aprobado
+> **Status:** Implementado
 > **Depends on:** SPEC 03 (`pushModule`, `notion`, estado reanudable `.notion-sync-state.json`), SPEC 05 (`sync.ts`, `push.ts`)
 > **Date:** 2026-07-30
 > **Objective:** Arreglar el archivado roto de páginas a medias en `pushModule` (la API de Notion ya no acepta `archived`, ahora es `in_trash`) y agregar un flag `--force` en `push`/`sync` para rehacer explícitamente un módulo ya subido — reposicionando la página nueva en el lugar exacto donde estaba la vieja dentro de la lista de subpáginas del padre, en vez de al final.
@@ -102,21 +102,21 @@ El cálculo de la posición (`after_block` / `page_start`, y el recorrido hacia 
 
 ## Acceptance criteria
 
-- [ ] `npm run typecheck` y `npm test` pasan sin errores con los cambios en `push-module.ts`, `push.ts`, `sync.ts` y sus tests.
-- [ ] `pushModule` con `force: false` y módulo ya `done` saltea sin llamar a `notion` (sin regresión sobre el comportamiento actual). (Test.)
-- [ ] `pushModule` con `force: true` y módulo ya `done` **no** saltea: archiva la página vieja y crea una nueva. (Test.)
-- [ ] El archivado de la página vieja usa `in_trash: true` en el `PATCH /pages/{id}`, no `archived`. (Test.)
-- [ ] Si el `pageId` guardado del módulo aparece entre los hijos actuales del padre, el `POST /pages` de la página nueva incluye `position: { type: "after_block", after_block: { id: <hermano-anterior> } }`. (Test.)
-- [ ] Si el `pageId` guardado es el primer hijo (sin hermano anterior), el `POST /pages` incluye `position: { type: "page_start" }`. (Test.)
-- [ ] Si el `pageId` guardado no aparece entre los hijos actuales, `pushModule` recorre hacia atrás los módulos anteriores en el estado y ancla después del primero que sí aparece. (Test.)
-- [ ] Si ningún módulo anterior aparece entre los hijos actuales, el `POST /pages` incluye `position: { type: "page_start" }`. (Test.)
-- [ ] Si el `PATCH .../in_trash` de la página vieja falla (ya no existe), `pushModule` no aborta: loguea y crea la página nueva igual, con el `position` ya calculado. (Test.)
-- [ ] En `sync.ts`, `--force` sin `MODULO_N` produce un error de uso claro y no llama a `pushModule` ni a `notion`. (Test.)
-- [ ] En `sync.ts`, `--force` con `MODULO_N` válido llama a `pushModule` con `force: true` para ese módulo. (Test.)
-- [ ] En `push.ts`, el flag `--force` se parsea y se pasa a `pushModule` (sin test automatizado nuevo ahí — decisión ya tomada; cobertura queda en `push-module.test.ts`).
-- [ ] `npm run sync -- <docx-real> <PARENT_PAGE_ID> N --force` sobre un módulo intermedio (con vecinos presentes) deja la página nueva visualmente en su misma posición, no al final. (Verificado a mano.)
-- [ ] Repetir el escenario real que disparó esta spec — un módulo cuyo `pageId` en el estado ya no existe en Notion (como pasó con el módulo 1 en SPEC 05) — se resuelve solo, sin necesitar editar el estado a mano. (Verificado a mano.)
-- [ ] `README.md` documenta `--force` en los ejemplos de uso de `npm run push` y `npm run sync`.
+- [x] `npm run typecheck` y `npm test` pasan sin errores con los cambios en `push-module.ts`, `push.ts`, `sync.ts` y sus tests.
+- [x] `pushModule` con `force: false` y módulo ya `done` saltea sin llamar a `notion` (sin regresión sobre el comportamiento actual). (Test.)
+- [x] `pushModule` con `force: true` y módulo ya `done` **no** saltea: archiva la página vieja y crea una nueva. (Test.)
+- [x] El archivado de la página vieja usa `in_trash: true` en el `PATCH /pages/{id}`, no `archived`. (Test.)
+- [x] Si el `pageId` guardado del módulo aparece entre los hijos actuales del padre, el `POST /pages` de la página nueva incluye `position: { type: "after_block", after_block: { id: <hermano-anterior> } }`. (Test.)
+- [x] Si el `pageId` guardado es el primer hijo (sin hermano anterior), el `POST /pages` incluye `position: { type: "page_start" }`. (Test.)
+- [x] Si el `pageId` guardado no aparece entre los hijos actuales, `pushModule` recorre hacia atrás los módulos anteriores en el estado y ancla después del primero que sí aparece. (Test.)
+- [x] Si ningún módulo anterior aparece entre los hijos actuales, el `POST /pages` incluye `position: { type: "page_start" }`. (Test.)
+- [x] Si el `PATCH .../in_trash` de la página vieja falla (ya no existe), `pushModule` no aborta: loguea y crea la página nueva igual, con el `position` ya calculado. (Test.)
+- [x] En `sync.ts`, `--force` sin `MODULO_N` produce un error de uso claro y no llama a `pushModule` ni a `notion`. (Test.)
+- [x] En `sync.ts`, `--force` con `MODULO_N` válido llama a `pushModule` con `force: true` para ese módulo. (Test.)
+- [x] En `push.ts`, el flag `--force` se parsea y se pasa a `pushModule` (sin test automatizado nuevo ahí — decisión ya tomada; cobertura queda en `push-module.test.ts`).
+- [x] `npm run sync -- <docx-real> <PARENT_PAGE_ID> N --force` sobre un módulo intermedio (con vecinos presentes) deja la página nueva visualmente en su misma posición, no al final. (Verificado a mano.)
+- [x] Repetir el escenario real que disparó esta spec — un módulo cuyo `pageId` en el estado ya no existe en Notion (como pasó con el módulo 1 en SPEC 05) — se resuelve solo, sin necesitar editar el estado a mano. (Verificado a mano.)
+- [x] `README.md` documenta `--force` en los ejemplos de uso de `npm run push` y `npm run sync`.
 
 ---
 
