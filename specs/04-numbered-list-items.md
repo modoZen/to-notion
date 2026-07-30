@@ -1,6 +1,6 @@
 # SPEC 04 — Listas numeradas en mdToBlocks (numbered-list-items)
 
-> **Status:** Aprobado
+> **Status:** Implementado
 > **Depends on:** SPEC 02 (`mdToBlocks`, `blocks.ts` — `B_LIST`/`takeList` como base análoga)
 > **Date:** 2026-07-30
 > **Objective:** Agregar reconocimiento de listas numeradas de markdown (`1.  texto`) como bloques `numbered_list_item` de Notion en `mdToBlocks`, cerrando el riesgo conocido documentado en SPEC 02 ahora que aparece un caso real validado (11 líneas en el módulo 1 de "Curso Profesional de JavaScript").
@@ -70,14 +70,14 @@ Conventions:
 
 ## Acceptance criteria
 
-- [ ] `npm run typecheck` y `npm test` pasan sin errores con los cambios en `src/md-to-notion/types.ts` y `src/md-to-notion/blocks.ts`.
-- [ ] Una lista numerada simple (`1. uno\n2. dos\n3. tres`) produce tres bloques `numbered_list_item`, uno por línea, en orden. (Test: `blocks.test.ts` → "lista numerada simple produce numbered_list_item por línea".)
-- [ ] Una lista numerada anidada a dos niveles produce un `numbered_list_item` con el hijo dentro de `children`, no un bloque plano. (Test: `blocks.test.ts` → "lista numerada anidada a dos niveles produce children dentro del item padre".)
-- [ ] Una línea en blanco entre ítems numerados no corta la lista si lo que sigue sigue siendo una línea numerada. (Test: `blocks.test.ts` → "una línea en blanco no corta la lista numerada si sigue habiendo números después".)
-- [ ] Una línea en blanco sí corta la lista numerada si lo que sigue no es una línea numerada (cae a párrafo). (Test: `blocks.test.ts` → "una línea en blanco sí corta la lista numerada si lo que sigue no es una línea numerada".)
-- [ ] Corriendo `npm run blocks -- workspace/curso-profesional-de-javascript/modules/01-introduccion.md`, el conteo de bloques `numbered_list_item` en el JSON resultante da 11. (Verificación puntual documentada con el comando y el resultado exacto — no en CI.)
-- [ ] Corriendo `npm run push -- --modulo workspace/curso-profesional-de-javascript/modules/01-introduccion.md --media workspace/curso-profesional-de-javascript/media --parent <PARENT_PAGE_ID>` (sin `--dry-run`) contra una página real de Notion, la página resultante muestra las 11 líneas como lista numerada real (1, 2, 3…), no como párrafo con el número como texto literal. Verificación manual contra Notion real, no en CI — mismo criterio que usó SPEC 03. Este paso lo corre el usuario (o el asistente si se le pide explícitamente), no se dispara solo.
-- [ ] `README.md`: las dos menciones a `SPEC 04` que se refieren al CLI de orquestación (líneas 13 y 76) dicen `SPEC 05`; la fila de `blocks.ts` en la tabla de `src/md-to-notion/` menciona `takeNumberedList`/`numbered_list_item`.
+- [x] `npm run typecheck` y `npm test` pasan sin errores con los cambios en `src/md-to-notion/types.ts` y `src/md-to-notion/blocks.ts`. (213 tests pasan.)
+- [x] Una lista numerada simple (`1. uno\n2. dos\n3. tres`) produce tres bloques `numbered_list_item`, uno por línea, en orden. (Test: `blocks.test.ts` → "lista numerada simple produce numbered_list_item por línea".)
+- [x] Una lista numerada anidada a dos niveles produce un `numbered_list_item` con el hijo dentro de `children`, no un bloque plano. (Test: `blocks.test.ts` → "lista numerada anidada a dos niveles produce children dentro del item padre".)
+- [x] Una línea en blanco entre ítems numerados no corta la lista si lo que sigue sigue siendo una línea numerada. (Test: `blocks.test.ts` → "una línea en blanco no corta la lista numerada si sigue habiendo números después".)
+- [x] Una línea en blanco sí corta la lista numerada si lo que sigue no es una línea numerada (cae a párrafo). (Test: `blocks.test.ts` → "una línea en blanco sí corta la lista numerada si lo que sigue no es una línea numerada".)
+- [x] Corriendo `npm run blocks -- workspace/curso-profesional-de-javascript/modules/01-introduccion.md`, el conteo de bloques `numbered_list_item` en el JSON resultante da 11. Verificado con `node src/cli/blocks.ts workspace/curso-profesional-de-javascript/modules/01-introduccion.md` + conteo programático de `type === "numbered_list_item"` sobre el JSON resultante (equivalente al `jq` propuesto; `jq` no estaba instalado en la máquina) → **resultado: 11**.
+- [x] Corriendo `npm run push -- --modulo workspace/curso-profesional-de-javascript/modules/01-introduccion.md --media workspace/curso-profesional-de-javascript/media --parent <PARENT_PAGE_ID>` (sin `--dry-run`) contra una página real de Notion, la página resultante muestra las 11 líneas como lista numerada real (1, 2, 3…), no como párrafo con el número como texto literal. Verificado contra `parent = 3ab0083c97d1819aa425e1f4003aac8a`: https://app.notion.com/p/1-Introducci-n-3ad0083c97d1815e83b9eafc38958b4f — confirmado visualmente por el usuario.
+- [x] `README.md`: las dos menciones a `SPEC 04` que se refieren al CLI de orquestación (líneas 13 y 76) dicen `SPEC 05`; la fila de `blocks.ts` en la tabla de `src/md-to-notion/` menciona `takeNumberedList`/`numbered_list_item`.
 
 ---
 
@@ -99,6 +99,8 @@ Conventions:
 | Risk                                                                                                                                                                                                                                                                                                                                                          | Mitigation                                                                                                                                                                                                                                             |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | El estado reanudable (`.notion-sync-state.json`) puede tener ya marcado el módulo 1 como `done` bajo el mismo `parentId` usado en pruebas manuales previas de SPEC 03. Si es así, `npm run push` para el criterio de aceptación lo saltaría sin tocar la red (comportamiento correcto de SPEC 03), y la verificación visual en Notion no probaría nada nuevo. | Antes de correr el push de verificación, usar un `PARENT_PAGE_ID` nuevo (no reutilizado en pruebas previas), o borrar a mano la entrada del módulo 1 en `.notion-sync-state.json` del `outDir` correspondiente para forzar la recreación de la página. |
+
+**Resultado real de esta verificación:** el riesgo se dio tal cual — el módulo 1 ya estaba `done` bajo el `parentId` usado. Al forzar la recreación (poniendo `done: false` con el `pageId` previo intacto), `pushModule` intentó archivar la página anterior vía `PATCH /pages/{id}` con `archived: true`, y la API de Notion lo rechazó (`400 validation_error: body.archived should be not present`) bajo el `NOTION_VERSION` pinneado (`2026-03-11`) — la API parece haber reemplazado ese campo (probablemente por `in_trash`). Es un bug real y preexistente en `pushModule` (`SPEC 03`), fuera de alcance de esta spec. Para desbloquear la verificación sin tocar código fuera de alcance, el usuario borró la página vieja a mano en Notion y se vació la entrada del módulo 1 en el estado, permitiendo que `pushModule` creara la página de cero sin pasar por el `PATCH` de archivado. **Queda pendiente una spec chica para arreglar el archivado de páginas a medias en `push-module.ts`.**
 
 ---
 
