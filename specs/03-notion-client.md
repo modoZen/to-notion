@@ -1,6 +1,6 @@
 # SPEC 03 — Cliente de Notion y subida de un módulo (notion-client)
 
-> **Status:** Aprobado
+> **Status:** Implementado
 > **Depends on:** SPEC 01 (markdown + imágenes en `workspace/<slug>/`), SPEC 02 (`mdToBlocks` en modo `'marker'`, `batch`)
 > **Date:** 2026-07-29
 > **Objective:** Portar fielmente la Parte 3 del prototipo (`references/notion-sync.js`, líneas 1270-1475) a un módulo TypeScript probado con Vitest (`src/notion-client/`), junto con un CLI angosto (`npm run push`) para subir un módulo suelto a Notion a mano.
