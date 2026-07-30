@@ -2,17 +2,20 @@
 
 Convierte documentos Word (apuntes de curso: módulos, prosa, snippets de
 código, imágenes) en subpáginas de Notion, colgadas de la fila del curso
-correspondiente en una base `Cursos`. El pipeline completo tiene dos etapas:
+correspondiente en una base `Cursos`. El pipeline completo tiene tres etapas:
 
 1. `.docx` → markdown + imágenes extraídas (cacheado en disco, revisable por
    un humano) (`SPEC 01`).
-2. markdown → bloques de Notion (`SPEC 02`). **Esto es lo que hay
-   implementado hasta ahora.** Todavía no sube nada a la API real: eso es
-   `SPEC 03` en adelante.
+2. markdown → bloques de Notion (`SPEC 02`).
+3. cliente de Notion + subida de un módulo puntual, a mano (`SPEC 03`).
+   **Esto es lo que hay implementado hasta ahora.** Todavía no existe un CLI
+   que recorra todos los módulos de un curso de punta a punta: eso es
+   `SPEC 04` en adelante.
 
 Este repo es público. Los `.docx` de origen y todo lo generado en
-`workspace/` (markdown, imágenes, manifest) son contenido de cursos pagos
-(Udemy, Platzi, etc.) y nunca se commitean — ver `.gitignore`.
+`workspace/` (markdown, imágenes, manifest, estado de subida) son contenido
+de cursos pagos (Udemy, Platzi, etc.) y nunca se commitean — ver
+`.gitignore`.
 
 ## Requisitos
 
@@ -30,6 +33,7 @@ npm run typecheck   # tsc --noEmit
 npm test            # vitest run
 npm run convert -- <ruta/al/archivo.docx>
 npm run blocks -- <ruta/al/modulo.md>
+npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID> [--dry-run]
 ```
 
 `npm run convert` escribe la salida en `workspace/<slug-del-docx>/`:
@@ -51,7 +55,30 @@ reconversión, borrá la carpeta `workspace/<slug>/` a mano.
 `npm run convert` (típicamente `workspace/<slug>/modules/NN-titulo.md`) y
 vuelca por stdout el JSON de bloques de Notion resultante (`{ blocks, images
 }`), sin escribir nada nuevo en disco. Sirve para revisar a mano el mapeo
-markdown → Notion antes de que exista un cliente real (`SPEC 03`).
+markdown → Notion antes de subirlo de verdad.
+
+`npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID>
+[--dry-run]` sube **un** módulo puntual a Notion, como subpágina de
+`PARENT_PAGE_ID`. Requiere `NOTION_TOKEN` seteado en el entorno o en un
+`.env` en la raíz del proyecto (ver `.env.example`). `--dry-run` calcula los
+bloques y las imágenes referenciadas e imprime el resumen sin tocar la red.
+`outDir` (donde vive `.notion-sync-state.json`, el estado reanudable) se
+deriva como la carpeta padre de `--media` — típicamente
+`workspace/<slug>/`. El título y el número de módulo se toman de
+`manifest.json` en `outDir` si existe (buscando la entrada cuyo número
+coincide con el prefijo `NN-` del nombre de archivo de `--modulo`); si no
+hay `manifest.json`, se reconstruyen del nombre de archivo
+(`NN-titulo-slug.md`), lo que da un título degradado (sin acentos ni
+mayúsculas, por cómo funciona `slugify` en `SPEC 01`). Un módulo que ya
+quedó `done` en el estado se salta sin tocar la red; una página a medias de
+un intento anterior se archiva y se rehace. Correr sin `--dry-run` requiere
+una página padre real de Notion — no hay chequeo de acceso a esa página en
+esta versión del CLI (`SPEC 04`), así que un `PARENT_PAGE_ID` inválido falla
+recién al intentar crear la página.
+
+La versión de la API de Notion (`NOTION_VERSION` en `src/notion-client/client.ts`)
+queda **pinneada a mano** (`2026-03-11`); si Notion la deprecara, hay que
+actualizarla en el código — no hay chequeo automático.
 
 ## Estructura de archivos
 
@@ -79,12 +106,23 @@ markdown → Notion antes de que exista un cliente real (`SPEC 03`).
 | `lang.ts` | `NOTION_LANGS` (lista cerrada de lenguajes que acepta el bloque `code` de Notion) y `safeLang` (normaliza y cae a `'plain text'` si el lenguaje no está soportado). |
 | `blocks.ts` | `mdToBlocks`: mapea línea/estructura de markdown a bloque de Notion — headings `#`/`##`/`###`, párrafo, fence de código, listas con viñeta anidadas por indentación de a 4 espacios (`takeList`, reconstruye el árbol por `children`), imágenes en modo `'callout'` (marcador visible) o `'marker'` (placeholder con token, para que `SPEC 03` lo reemplace tras subir el archivo), y el primer `# Título` como título de página en vez de bloque. También `batch` (agrupa bloques de a 100, límite de bloques por request de la API de Notion). |
 
+### `src/notion-client/`
+
+| Archivo | Responsabilidad |
+| --- | --- |
+| `types.ts` | Tipos del cliente y del estado reanudable (`HttpMethod`, `NotionRequestExtra`, `ModuleState`, `ParentState`, `SyncState`, `PushModuleInput`). |
+| `client.ts` | `loadEnv` (lee un `.env` simple sin pisar variables ya seteadas en el entorno) y `notion` (wrapper de `fetch` nativo con rate-limit `MIN_INTERVAL_MS` ~3 req/s, reintentos hasta `MAX_RETRIES`, respeta `Retry-After` en 429 y hace backoff exponencial en 5xx). Sin `@notionhq/client` ni otro SDK oficial. |
+| `images.ts` | `uploadImage` (reserva → envía contenido → devuelve `file_upload` id; valida el límite `MAX_UPLOAD` de 20 MiB; mapea extensión a `Content-Type` con `MIME`, cayendo a `application/octet-stream` si no está en la lista) y `resolveImages` (sustituye los bloques `_marker` de `SPEC 02` por bloques `image` reales, o deja el bloque de texto original si falta el id). |
+| `state.ts` | `statePath`, `loadState` y `saveState`: persisten `.notion-sync-state.json` en `outDir`, qué módulo ya quedó `done` y bajo qué `pageId`, por cada página padre. |
+| `push-module.ts` | `pushModule`: orquesta la subida de un módulo puntual — salta si ya está `done`, archiva una página de un intento previo incompleto, sube imágenes, resuelve markers, crea la página con el primer lote de bloques y hace `PATCH` del resto, guardando el estado después de crear la página y de nuevo al terminar. `dryRun` no toca la red. |
+
 ### `src/cli/`
 
 | Archivo | Responsabilidad |
 | --- | --- |
 | `convert.ts` | Entrypoint de `npm run convert -- <ruta.docx>`. Llama a `convertDocx`, imprime el reporte y la carpeta de salida, o el error con código de salida distinto de cero. |
 | `blocks.ts` | Entrypoint de `npm run blocks -- <ruta/al/modulo.md>`. Llama a `mdToBlocks` sobre el markdown leído e imprime `{ blocks, images }` por stdout como JSON, sin tocar disco. |
+| `push.ts` | Entrypoint de `npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID> [--dry-run]`. Parseo manual de flags, deriva `outDir` de `--media`, resuelve `PushModuleInput` desde `manifest.json` o el nombre de archivo, y llama a `loadEnv` + `pushModule`. |
 
 ## Tests
 
@@ -103,6 +141,11 @@ markdown → Notion antes de que exista un cliente real (`SPEC 03`).
   `references/notion-sync.js` (Parte 2) se hace a mano sobre los módulos
   reales de un `.docx` ya convertido (no está en CI, ese `.docx` tampoco se
   commitea).
+- Los tests de `src/notion-client/` mockean `fetch` global y usan
+  `vi.useFakeTimers()` para el rate-limit/reintentos/backoff, sin depender
+  de esperas reales ni de red. Subir un módulo de verdad contra la API real
+  de Notion (con `NOTION_TOKEN` y una página padre reales) se valida a
+  mano, no está en CI.
 
 ## Notas de diseño
 
