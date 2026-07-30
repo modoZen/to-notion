@@ -12,6 +12,7 @@ export interface RunSyncOptions {
   parentId: string;
   moduleNumber?: number; // MODULO_N parseado; ausente = todos los módulos
   dryRun: boolean;
+  force: boolean; // solo válido junto con moduleNumber; se valida en runSync
 }
 
 interface NotionPage {
@@ -21,8 +22,10 @@ interface NotionPage {
 export function parseArgv(argv: string[]): RunSyncOptions | null {
   const positional: string[] = [];
   let dryRun = false;
+  let force = false;
   for (const arg of argv) {
     if (arg === "--dry-run") dryRun = true;
+    else if (arg === "--force") force = true;
     else positional.push(arg);
   }
 
@@ -34,11 +37,16 @@ export function parseArgv(argv: string[]): RunSyncOptions | null {
     parentId,
     moduleNumber: moduleArg !== undefined ? Number(moduleArg) : undefined,
     dryRun,
+    force,
   };
 }
 
 export async function runSync(options: RunSyncOptions): Promise<void> {
-  const { docxPath, parentId, moduleNumber, dryRun } = options;
+  const { docxPath, parentId, moduleNumber, dryRun, force } = options;
+
+  if (force && moduleNumber === undefined) {
+    throw new Error("--force requiere especificar MODULO_N (no se permite forzar el rehacer de una corrida completa)");
+  }
 
   if (!existsSync(docxPath)) {
     throw new Error(`No existe ${docxPath}`);
@@ -76,7 +84,7 @@ export async function runSync(options: RunSyncOptions): Promise<void> {
   const state = loadState(outDir);
   console.log(`Subiendo ${modules.length} módulo(s)${dryRun ? " (simulación)" : ""}`);
   for (const mod of modules) {
-    await pushModule(mod, join(outDir, mod.file), mediaDir, parentId, outDir, state, dryRun);
+    await pushModule(mod, join(outDir, mod.file), mediaDir, parentId, outDir, state, dryRun, force);
   }
   console.log("Listo.");
 }
@@ -85,7 +93,7 @@ async function main(): Promise<void> {
   loadEnv();
   const options = parseArgv(process.argv.slice(2));
   if (!options) {
-    console.error("Uso: npm run sync -- <archivo.docx> <PARENT_PAGE_ID> [MODULO_N] [--dry-run]");
+    console.error("Uso: npm run sync -- <archivo.docx> <PARENT_PAGE_ID> [MODULO_N] [--dry-run] [--force]");
     process.exitCode = 1;
     return;
   }
