@@ -1,9 +1,10 @@
 import { safeLang } from "./lang.ts";
 import { makeText, parseInline, splitRichText } from "./rich-text.ts";
-import type { MdToBlocksOptions, MdToBlocksResult, NotionBlock } from "./types.ts";
+import type { ImageMode, MdToBlocksOptions, MdToBlocksResult, NotionBlock } from "./types.ts";
 
 const B_HEADING = /^(#{1,3})\s+(.*)$/;
 const B_LIST = /^(\s*)[-*+]\s+(.*)$/;
+const B_IMAGE = /^!\[\]\((image[^)]+)\)\s*$/;
 const B_FENCE = /^```(.*)$/;
 
 /**
@@ -15,10 +16,14 @@ const B_FENCE = /^```(.*)$/;
  *              script final lo sustituye tras subir el archivo
  */
 export function mdToBlocks(markdown: string, opts: MdToBlocksOptions = {}): MdToBlocksResult {
+  const imageMode = opts.imageMode || "callout";
   const lines = markdown.split("\n");
   const blocks: NotionBlock[] = [];
   const images: string[] = [];
   let i = 0;
+
+  // El primer `# Titulo` es el título de la página, no un bloque.
+  if (B_HEADING.test(lines[0] || "") && lines[0].startsWith("# ")) i = 1;
 
   while (i < lines.length) {
     const line = lines[i];
@@ -40,6 +45,14 @@ export function mdToBlocks(markdown: string, opts: MdToBlocksOptions = {}): MdTo
         type: "code",
         code: { language: lang, rich_text: splitRichText([makeText(body.join("\n"))]) },
       });
+      continue;
+    }
+
+    const img = B_IMAGE.exec(line);
+    if (img) {
+      images.push(img[1]);
+      blocks.push(imageBlock(img[1], imageMode));
+      i++;
       continue;
     }
 
@@ -86,6 +99,28 @@ export function mdToBlocks(markdown: string, opts: MdToBlocksOptions = {}): MdTo
   }
 
   return { blocks, images };
+}
+
+function imageBlock(token: string, mode: ImageMode): NotionBlock {
+  if (mode === "callout") {
+    return {
+      object: "block",
+      type: "callout",
+      callout: {
+        icon: { type: "emoji", emoji: "🖼️" },
+        color: "gray_background",
+        rich_text: [makeText(`![](${token})`, { code: true })],
+      },
+    };
+  }
+  // 'marker': el script final reemplaza este bloque por uno de imagen real
+  // usando el token del caption para saber qué archivo subir.
+  return {
+    object: "block",
+    type: "paragraph",
+    paragraph: { rich_text: [makeText(`![](${token})`, { code: true })] },
+    _marker: token,
+  };
 }
 
 /**

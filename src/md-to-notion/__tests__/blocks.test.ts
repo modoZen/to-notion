@@ -3,9 +3,11 @@ import { mdToBlocks } from "../blocks.ts";
 
 describe("mdToBlocks", () => {
   it("mapea headings # ## ### a heading_1/2/3 con is_toggleable: false", () => {
-    const { blocks } = mdToBlocks("# Título 1\n\n## Título 2\n\n### Título 3");
+    // el heading # va después de un párrafo para no confundirse con el título de página (ver test dedicado)
+    const { blocks } = mdToBlocks("Intro.\n\n# Título 1\n\n## Título 2\n\n### Título 3");
 
     expect(blocks).toEqual([
+      { object: "block", type: "paragraph", paragraph: { rich_text: [{ type: "text", text: { content: "Intro." } }] } },
       {
         object: "block",
         type: "heading_1",
@@ -96,7 +98,8 @@ describe("mdToBlocks", () => {
 
     const { blocks, images } = mdToBlocks(md);
 
-    expect(blocks.map((b) => b.type)).toEqual(["heading_1", "heading_2", "paragraph", "code", "paragraph"]);
+    // "# Módulo 1: Introducción" es la primera línea -> título de página, no bloque.
+    expect(blocks.map((b) => b.type)).toEqual(["heading_2", "paragraph", "code", "paragraph"]);
     expect(images).toEqual([]);
   });
 
@@ -182,5 +185,53 @@ describe("mdToBlocks", () => {
     const { blocks } = mdToBlocks(md);
 
     expect(blocks.map((b) => b.type)).toEqual(["bulleted_list_item", "paragraph"]);
+  });
+
+  it("imagen en modo 'callout' produce un bloque callout con ícono 🖼️", () => {
+    const { blocks, images } = mdToBlocks("![](image1.png)", { imageMode: "callout" });
+
+    expect(blocks).toEqual([
+      {
+        object: "block",
+        type: "callout",
+        callout: {
+          icon: { type: "emoji", emoji: "🖼️" },
+          color: "gray_background",
+          rich_text: [{ type: "text", text: { content: "![](image1.png)" }, annotations: { code: true } }],
+        },
+      },
+    ]);
+    expect(images).toEqual(["image1.png"]);
+  });
+
+  it("imagen en modo 'marker' produce un paragraph con _marker seteado al token", () => {
+    const { blocks, images } = mdToBlocks("![](image1.png)", { imageMode: "marker" });
+
+    expect(blocks).toEqual([
+      {
+        object: "block",
+        type: "paragraph",
+        paragraph: {
+          rich_text: [{ type: "text", text: { content: "![](image1.png)" }, annotations: { code: true } }],
+        },
+        _marker: "image1.png",
+      },
+    ]);
+    expect(images).toEqual(["image1.png"]);
+  });
+
+  it("modo de imagen por defecto es 'callout'", () => {
+    const { blocks } = mdToBlocks("![](image1.png)");
+    expect(blocks[0].type).toBe("callout");
+  });
+
+  it("la primera línea '# Título' se descarta como título de página, no como bloque", () => {
+    const { blocks } = mdToBlocks("# Módulo 1\n\nUn párrafo.");
+    expect(blocks.map((b) => b.type)).toEqual(["paragraph"]);
+  });
+
+  it("sin línea de título: el primer heading se mantiene como bloque", () => {
+    const { blocks } = mdToBlocks("## No es título de página\n\nUn párrafo.");
+    expect(blocks.map((b) => b.type)).toEqual(["heading_2", "paragraph"]);
   });
 });
