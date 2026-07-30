@@ -140,8 +140,8 @@ Conventions:
 - [ ] Una imagen (`![](image1.png)`) en modo `'callout'` produce un bloque `callout` con el ícono 🖼️ y el marcador como texto en código; en modo `'marker'` produce un bloque `paragraph` con `_marker` seteado al token.
 - [ ] Un texto de más de 2000 caracteres en un párrafo se parte en múltiples fragmentos de `rich_text`, cortando en espacio cuando es posible, sin superar los 2000 caracteres por fragmento.
 - [ ] Más de 100 bloques generados por `mdToBlocks` se agrupan correctamente en lotes de a 100 con `batch`.
-- [ ] `npm run blocks -- <ruta/al/modulo.md>` corre sobre un `.md` real ya generado por SPEC 01 e imprime el JSON de bloques por stdout sin errores.
-- [ ] El JSON de bloques generado por `mdToBlocks` sobre los módulos reales del `.docx` de validación de SPEC 01 es idéntico al que produce `references/notion-sync.js` (Parte 2) sobre los mismos módulos. (Verificado a mano, no en CI — ese `.docx` no se commitea.)
+- [x] `npm run blocks -- <ruta/al/modulo.md>` corre sobre un `.md` real ya generado por SPEC 01 e imprime el JSON de bloques por stdout sin errores. (Verificado a mano con los 11 módulos reales de "Curso Profesional de JavaScript".)
+- [x] El JSON de bloques generado por `mdToBlocks` sobre los módulos reales del `.docx` de validación de SPEC 01 es idéntico al que produce `references/notion-sync.js` (Parte 2) sobre los mismos módulos. (Verificado a mano, no en CI — ese `.docx` no se commitea. Corridos ambos `mdToBlocks` —puerto TS y prototipo— sobre los 11 módulos generados por `npm run convert` a partir del `.docx` real de "Curso Profesional de JavaScript" —Platzi—, en ambos modos de imagen `callout` y `marker`: los 22 JSON resultantes son idénticos byte a byte, 99 a 281 bloques por módulo según el caso.)
 - [ ] `README.md` documenta el árbol de archivos de `src/md-to-notion/` y `src/cli/blocks.ts`.
 
 ---
