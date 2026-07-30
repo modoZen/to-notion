@@ -1,6 +1,6 @@
 # SPEC 02 — Mapeo de markdown a bloques de Notion (md-to-notion)
 
-> **Status:** Aprobado
+> **Status:** Implementado
 > **Depends on:** SPEC 01 (formato del markdown de entrada)
 > **Date:** 2026-07-29
 > **Objective:** Portar fielmente la Parte 2 del prototipo (`references/notion-sync.js`, líneas 963-1270) a un módulo TypeScript probado con Vitest (`src/md-to-notion/`), incluyendo un script de CLI para inspeccionar a mano el JSON de bloques resultante de un módulo ya convertido por SPEC 01.
@@ -132,17 +132,17 @@ Conventions:
 
 ## Acceptance criteria
 
-- [ ] `npm run typecheck` y `npm test` pasan sin errores con los nuevos archivos de `src/md-to-notion/`.
-- [ ] Cada función de la sección Data model tiene al menos un test: `parseInline`, `splitRichText`, `safeLang`, `mdToBlocks` (heading, párrafo, código, lista con viñeta anidada, imagen en ambos modos), `takeList`, `batch`.
-- [ ] Un heading `#`, `##` o `###` se mapea a `heading_1`/`heading_2`/`heading_3` respectivamente, con `is_toggleable: false`.
-- [ ] Un fence de código con lenguaje soportado por Notion se mapea a un bloque `code` con ese lenguaje; un lenguaje no soportado cae a `'plain text'`.
-- [ ] Una lista con viñeta anidada a dos niveles produce un `bulleted_list_item` con el hijo dentro de `children`, no un bloque plano.
-- [ ] Una imagen (`![](image1.png)`) en modo `'callout'` produce un bloque `callout` con el ícono 🖼️ y el marcador como texto en código; en modo `'marker'` produce un bloque `paragraph` con `_marker` seteado al token.
-- [ ] Un texto de más de 2000 caracteres en un párrafo se parte en múltiples fragmentos de `rich_text`, cortando en espacio cuando es posible, sin superar los 2000 caracteres por fragmento.
-- [ ] Más de 100 bloques generados por `mdToBlocks` se agrupan correctamente en lotes de a 100 con `batch`.
+- [x] `npm run typecheck` y `npm test` pasan sin errores con los nuevos archivos de `src/md-to-notion/`. (Verificado: `tsc --noEmit` sin salida, `vitest run` → 12 archivos, 189 tests, 0 fallos, incluyendo los 35 nuevos de `src/md-to-notion/`.)
+- [x] Cada función de la sección Data model tiene al menos un test: `parseInline`, `splitRichText`, `safeLang`, `mdToBlocks` (heading, párrafo, código, lista con viñeta anidada, imagen en ambos modos), `takeList`, `batch`. (Verificado por nombre de test: `rich-text.test.ts` cubre `parseInline` —8 casos— y `splitRichText` —3 casos—; `lang.test.ts` cubre `safeLang` —4 casos—; `blocks.test.ts` cubre `mdToBlocks` en heading/párrafo/código/lista simple/lista anidada/imagen callout/imagen marker/título, y `batch` —3 casos—. `takeList` no está exportada; se ejercita indirectamente vía los tests de lista anidada y de corte por línea en blanco de `mdToBlocks`.)
+- [x] Un heading `#`, `##` o `###` se mapea a `heading_1`/`heading_2`/`heading_3` respectivamente, con `is_toggleable: false`. (Test: `blocks.test.ts` → "mapea headings # ## ### a heading_1/2/3 con is_toggleable: false".)
+- [x] Un fence de código con lenguaje soportado por Notion se mapea a un bloque `code` con ese lenguaje; un lenguaje no soportado cae a `'plain text'`. (Tests: `blocks.test.ts` → "mapea un fence de código con lenguaje soportado a bloque code" y "un lenguaje no soportado en el fence cae a 'plain text'".)
+- [x] Una lista con viñeta anidada a dos niveles produce un `bulleted_list_item` con el hijo dentro de `children`, no un bloque plano. (Test: `blocks.test.ts` → "lista anidada a dos niveles produce children dentro del item padre".)
+- [x] Una imagen (`![](image1.png)`) en modo `'callout'` produce un bloque `callout` con el ícono 🖼️ y el marcador como texto en código; en modo `'marker'` produce un bloque `paragraph` con `_marker` seteado al token. (Tests: `blocks.test.ts` → "imagen en modo 'callout' produce un bloque callout con ícono 🖼️" y "imagen en modo 'marker' produce un paragraph con \_marker seteado al token".)
+- [x] Un texto de más de 2000 caracteres en un párrafo se parte en múltiples fragmentos de `rich_text`, cortando en espacio cuando es posible, sin superar los 2000 caracteres por fragmento. (Tests: `rich-text.test.ts` → "parte un texto de más de 2000 caracteres cortando en un espacio" y "corte duro cuando no hay espacio útil cerca del límite".)
+- [x] Más de 100 bloques generados por `mdToBlocks` se agrupan correctamente en lotes de a 100 con `batch`. (Test: `blocks.test.ts` → "con más de 100 bloques los agrupa en lotes de a 100", 250 bloques → lotes de 100/100/50.)
 - [x] `npm run blocks -- <ruta/al/modulo.md>` corre sobre un `.md` real ya generado por SPEC 01 e imprime el JSON de bloques por stdout sin errores. (Verificado a mano con los 11 módulos reales de "Curso Profesional de JavaScript".)
 - [x] El JSON de bloques generado por `mdToBlocks` sobre los módulos reales del `.docx` de validación de SPEC 01 es idéntico al que produce `references/notion-sync.js` (Parte 2) sobre los mismos módulos. (Verificado a mano, no en CI — ese `.docx` no se commitea. Corridos ambos `mdToBlocks` —puerto TS y prototipo— sobre los 11 módulos generados por `npm run convert` a partir del `.docx` real de "Curso Profesional de JavaScript" —Platzi—, en ambos modos de imagen `callout` y `marker`: los 22 JSON resultantes son idénticos byte a byte, 99 a 281 bloques por módulo según el caso.)
-- [ ] `README.md` documenta el árbol de archivos de `src/md-to-notion/` y `src/cli/blocks.ts`.
+- [x] `README.md` documenta el árbol de archivos de `src/md-to-notion/` y `src/cli/blocks.ts`. (Verificado: tabla `### src/md-to-notion/` con los 4 archivos, y fila `blocks.ts` agregada a la tabla `### src/cli/`.)
 
 ---
 
