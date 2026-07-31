@@ -37,6 +37,7 @@ npm run blocks -- <ruta/al/modulo.md>
 npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID> [--dry-run] [--force]
 npm run sync -- <ruta/al/archivo.docx> <PARENT_PAGE_ID> [MODULO_N] [--dry-run] [--force]
 npm run sync-course -- <ruta/al/archivo.docx> [MODULO_N] --area <area> --plataforma <plataforma> [--estado <estado>] [--titulo <titulo>] [--dry-run] [--force]
+npm run sync-course-win -- <ruta-windows-del-docx> [MODULO_N] --area <area> --plataforma <plataforma> [--estado <estado>] [--titulo <titulo>] [--dry-run] [--force]
 ```
 
 `npm run convert` escribe la salida en `workspace/<slug-del-docx>/`:
@@ -141,6 +142,13 @@ en su esquema, y `NOTION_CURSOS_DATABASE_ID` debe apuntar a esa base en
 `.env`. `--area`/`--plataforma`/`--estado` son strings libres (sin lista
 cerrada validada en código) que se mandan tal cual al `select` de Notion.
 
+`npm run sync-course-win` es un wrapper de conveniencia para correr este
+proyecto en WSL con los `.docx` guardados del lado Windows: acepta la ruta
+tal cual la copia el Explorador de Windows (`C:\Users\...\archivo.docx`),
+la traduce a ruta WSL con `wslpath` y delega en `sync-course` con el resto
+de los argumentos sin cambios. Requiere estar corriendo dentro de WSL
+(falla con un mensaje claro si `wslpath` no existe).
+
 La versión de la API de Notion (`NOTION_VERSION` en `src/notion-client/client.ts`)
 queda **pinneada a mano** (`2026-03-11`); si Notion la deprecara, hay que
 actualizarla en el código — no hay chequeo automático.
@@ -193,6 +201,7 @@ actualizarla en el código — no hay chequeo automático.
 | `push.ts` | Entrypoint de `npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID> [--dry-run] [--force]`. Parseo manual de flags, deriva `outDir` de `--media`, resuelve `PushModuleInput` desde `manifest.json` o el nombre de archivo, y llama a `loadEnv` + `pushModule` con el `force` parseado. |
 | `sync.ts` | Entrypoint de `npm run sync -- <archivo.docx> <PARENT_PAGE_ID> [MODULO_N] [--dry-run] [--force]`. `parseArgv` (posicionales + `--dry-run`/`--force` en cualquier posición) separado de `runSync` (orquestación testeable sin pasar por `process.argv`) y de `main()`. `runSync` valida primero que `--force` no venga sin `MODULO_N` (error de uso, corta antes de convertir el `.docx` o tocar la red), convierte el `.docx` (`convertDocx`, siempre), filtra `manifest.modules` por `MODULO_N` si vino, chequea acceso a la página padre (`GET /pages/:id`) salvo con `--dry-run`, y recorre los módulos filtrados llamando a `pushModule` en orden con el `force` recibido, sin `try/catch` por módulo — un error aborta el resto de la corrida. |
 | `sync-course.ts` | Entrypoint de `npm run sync-course -- <archivo.docx> [MODULO_N] --area <area> --plataforma <plataforma> [--estado <estado>] [--titulo <titulo>] [--dry-run] [--force]` (`SPEC 08`). `parseArgv`, `prettifyTitle` (basename del `.docx` a título "prettified") y `runSyncCourse` (resuelve el `parent` automáticamente vía `course-registry.json`, creando la fila en `Cursos` con `createCourse` si el slug es nuevo, y delega siempre en `runSync` de `sync.ts` — sin modificarlo — para subir los módulos) separados de `main()`. No acepta `PARENT_PAGE_ID` como argumento; ver el detalle de la orquestación en "Instalar y correr". |
+| `sync-course-win.ts` | Wrapper de conveniencia para WSL, sin spec propia (no toca lógica de negocio). `npm run sync-course-win -- <ruta-windows-del-docx> [...]` acepta la ruta tal cual la copia el Explorador de Windows ("Copiar como ruta de acceso", con `\` y letra de unidad), la convierte a ruta WSL con `toWslPath` (delega en el `wslpath` real del sistema, no reimplementa la traducción) y llama a `parseArgv`+`runSyncCourse` de `sync-course.ts` con el resto de los argumentos tal cual. Falla con un mensaje claro si `wslpath` no está disponible (no se está corriendo dentro de WSL). |
 
 ## Tests
 
