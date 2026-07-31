@@ -41,3 +41,17 @@ export interface NewCourseEntry {
   docxFileName: string;
   docxHash: string;
 }
+
+// Properties de transporte para crear/actualizar la fila de un curso en la
+// base `Cursos` de Notion. createCourse() las mapea a las properties crudas
+// de la API (Título/Área/Plataforma/Estado/Módulos/Archivo origen/Última
+// sincronización); nunca toca `Notas`.
+export interface CourseProperties {
+  titulo: string;
+  area: string;
+  plataforma: string;
+  estado: string;
+  modulos: number;
+  archivoOrigen: string;
+  ultimaSincronizacion: string; // ISO, valor de `date.start`
+}

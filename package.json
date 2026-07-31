@@ -12,7 +12,8 @@
     "convert": "node src/cli/convert.ts",
     "blocks": "node src/cli/blocks.ts",
     "push": "node src/cli/push.ts",
-    "sync": "node src/cli/sync.ts"
+    "sync": "node src/cli/sync.ts",
+    "sync-course": "node src/cli/sync-course.ts"
   },
   "devDependencies": {
     "@types/node": "^26.1.2",

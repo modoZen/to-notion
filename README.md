@@ -8,8 +8,10 @@ correspondiente en una base `Cursos`. El pipeline completo tiene tres etapas:
    un humano) (`SPEC 01`).
 2. markdown → bloques de Notion (`SPEC 02`).
 3. cliente de Notion + subida a Notion: un módulo puntual a mano (`SPEC 03`,
-   `npm run push`) o el `.docx` completo de punta a punta en una sola corrida
-   (`SPEC 05`, `npm run sync`).
+   `npm run push`), el `.docx` completo de punta a punta contra un
+   `PARENT_PAGE_ID` ya conocido (`SPEC 05`, `npm run sync`), o resolviendo
+   ese parent automáticamente — creando la fila del curso en `Cursos` si es
+   la primera vez (`SPEC 08`, `npm run sync-course`).
 
 Este repo es público. Los `.docx` de origen y todo lo generado en
 `workspace/` (markdown, imágenes, manifest, estado de subida) son contenido
@@ -34,6 +36,7 @@ npm run convert -- <ruta/al/archivo.docx>
 npm run blocks -- <ruta/al/modulo.md>
 npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID> [--dry-run] [--force]
 npm run sync -- <ruta/al/archivo.docx> <PARENT_PAGE_ID> [MODULO_N] [--dry-run] [--force]
+npm run sync-course -- <ruta/al/archivo.docx> [MODULO_N] --area <area> --plataforma <plataforma> [--estado <estado>] [--titulo <titulo>] [--dry-run] [--force]
 ```
 
 `npm run convert` escribe la salida en `workspace/<slug-del-docx>/`:
@@ -103,6 +106,41 @@ uso antes de convertir el `.docx` o tocar la red. Con `MODULO_N`, rehace ese
 módulo puntual reposicionando la página nueva en el lugar exacto donde
 estaba la vieja (mismo mecanismo que `npm run push --force`).
 
+`npm run sync-course -- <ruta/al/archivo.docx> [MODULO_N] --area <area>
+--plataforma <plataforma> [--estado <estado>] [--titulo <titulo>] [--dry-run]
+[--force]` (`SPEC 08`) resuelve el `parent` automáticamente en vez de
+recibirlo como argumento — es el comando de uso diario, sin distinguir
+"primera vez" de "curso ya conocido" a nivel de invocación. Calcula el
+`slug` (mismo `slugify` que el resto del pipeline) y el hash sha256 del
+`.docx` (`hashFile`), y busca el slug en `<workspaceRoot>/course-registry.json`
+(`SPEC 07`):
+
+- **Slug ya registrado**: usa el `pageId` guardado como parent y delega en
+  `runSync` tal cual (no exige `--area`/`--plataforma`; si se pasan, se
+  ignoran). Si `!dryRun` y `runSync` no lanza, actualiza el registro
+  (`upsertCourse` + `saveRegistry`) y hace `PATCH` de `Módulos` +
+  `Última sincronización` en la fila de Notion.
+- **Slug nuevo**: requiere `--area` y `--plataforma` (error de uso claro
+  antes de tocar la red si faltan), y `NOTION_CURSOS_DATABASE_ID` seteado
+  (error de configuración antes de llamar a `createCourse`, incluso con
+  `--dry-run`). Arma las properties de la fila (título por defecto:
+  basename del `.docx` "prettified" — guiones/underscores a espacios, cada
+  palabra capitalizada — salvo que se pase `--titulo`; `--estado` por
+  defecto `"Terminado"`, se escribe una sola vez, nunca se actualiza en
+  corridas posteriores). Con `--dry-run` solo imprime esas properties y el
+  hash calculado, sin crear nada ni seguir al push de módulos. Sin
+  `--dry-run`: crea la fila (`createCourse`) → guarda el registro
+  (`upsertCourse` + `saveRegistry`, para que una corrida siguiente no
+  duplique la fila aunque el push de módulos falle a mitad de camino) →
+  delega en `runSync` → si no lanzó, `PATCH` de `Módulos` + `Última
+  sincronización`.
+
+Precondición manual (no la crea el script): la base `Cursos` real debe tener
+ya las properties `Última sincronización` (date) y `Archivo origen` (text)
+en su esquema, y `NOTION_CURSOS_DATABASE_ID` debe apuntar a esa base en
+`.env`. `--area`/`--plataforma`/`--estado` son strings libres (sin lista
+cerrada validada en código) que se mandan tal cual al `select` de Notion.
+
 La versión de la API de Notion (`NOTION_VERSION` en `src/notion-client/client.ts`)
 queda **pinneada a mano** (`2026-03-11`); si Notion la deprecara, hay que
 actualizarla en el código — no hay chequeo automático.
@@ -141,7 +179,9 @@ actualizarla en el código — no hay chequeo automático.
 | `client.ts` | `loadEnv` (lee un `.env` simple sin pisar variables ya seteadas en el entorno) y `notion` (wrapper de `fetch` nativo con rate-limit `MIN_INTERVAL_MS` ~3 req/s, reintentos hasta `MAX_RETRIES`, respeta `Retry-After` en 429 y hace backoff exponencial en 5xx). Sin `@notionhq/client` ni otro SDK oficial. |
 | `images.ts` | `uploadImage` (reserva → envía contenido → devuelve `file_upload` id; valida el límite `MAX_UPLOAD` de 20 MiB; mapea extensión a `Content-Type` con `MIME`, cayendo a `application/octet-stream` si no está en la lista) y `resolveImages` (sustituye los bloques `_marker` de `SPEC 02` por bloques `image` reales, o deja el bloque de texto original si falta el id). |
 | `state.ts` | `statePath`, `loadState` y `saveState`: persisten `.notion-sync-state.json` en `outDir`, qué módulo ya quedó `done` y bajo qué `pageId`, por cada página padre. |
-| `registry.ts` | `registryPath`, `loadRegistry`, `saveRegistry` y `upsertCourse`: persisten `<workspaceRoot>/course-registry.json` (registro cross-course, separado de `.notion-sync-state.json`), guardando por `slug` el `pageId` de la fila en `Cursos`, nombre y hash del `.docx` origen, y fechas de alta/última sincronización. `upsertCourse` muta el registro en el lugar y lanza si el mismo `slug` ya está registrado con otro `docxFileName` (colisión por truncamiento). Todavía sin wiring a `sync.ts`/`push.ts` — nada llama a `upsertCourse` en una corrida real. |
+| `registry.ts` | `registryPath`, `loadRegistry`, `saveRegistry` y `upsertCourse`: persisten `<workspaceRoot>/course-registry.json` (registro cross-course, separado de `.notion-sync-state.json`), guardando por `slug` el `pageId` de la fila en `Cursos`, nombre y hash del `.docx` origen, y fechas de alta/última sincronización. `upsertCourse` muta el registro en el lugar y lanza si el mismo `slug` ya está registrado con otro `docxFileName` (colisión por truncamiento). Wireado en `src/cli/sync-course.ts` (`SPEC 08`). |
+| `hash.ts` | `hashFile(path)`: sha256 hex del contenido completo de un archivo (`readFileSync`, sin streaming — los `.docx` de curso pesan pocos MB). Usado por `sync-course.ts` para trackear el hash del `.docx` en el registro (`SPEC 08`). |
+| `course.ts` | `createCourse(databaseId, properties)`: `POST /pages` con `parent: { database_id }`, mapea `CourseProperties` a las properties crudas de Notion (`Título`, `Área`, `Plataforma`, `Estado`, `Módulos`, `Archivo origen`, `Última sincronización`) y devuelve el `pageId` de la fila creada. `updateCourseAfterSync(pageId, modulos)`: `PATCH` que solo toca `Módulos` y `Última sincronización` — no reconstruye el resto de las properties, que quedan fijas desde la creación (`SPEC 08`). |
 | `push-module.ts` | `pushModule`: orquesta la subida de un módulo puntual — salta si ya está `done` (salvo `force: true`), archiva (`in_trash`) una página de un intento previo incompleto o de un rehacer forzado (tolera que el archivado falle si la página ya no existe), sube imágenes, resuelve markers, crea la página con el primer lote de bloques (reposicionada con `position` en el lugar de la vieja: hermano anterior entre los hijos actuales del padre, o el módulo anterior más cercano que siga presente, o `page_start`) y hace `PATCH` del resto, guardando el estado después de crear la página y de nuevo al terminar. `dryRun` no toca la red. |
 
 ### `src/cli/`
@@ -152,6 +192,7 @@ actualizarla en el código — no hay chequeo automático.
 | `blocks.ts` | Entrypoint de `npm run blocks -- <ruta/al/modulo.md>`. Llama a `mdToBlocks` sobre el markdown leído e imprime `{ blocks, images }` por stdout como JSON, sin tocar disco. |
 | `push.ts` | Entrypoint de `npm run push -- --modulo <ruta.md> --media <mediaDir> --parent <PARENT_PAGE_ID> [--dry-run] [--force]`. Parseo manual de flags, deriva `outDir` de `--media`, resuelve `PushModuleInput` desde `manifest.json` o el nombre de archivo, y llama a `loadEnv` + `pushModule` con el `force` parseado. |
 | `sync.ts` | Entrypoint de `npm run sync -- <archivo.docx> <PARENT_PAGE_ID> [MODULO_N] [--dry-run] [--force]`. `parseArgv` (posicionales + `--dry-run`/`--force` en cualquier posición) separado de `runSync` (orquestación testeable sin pasar por `process.argv`) y de `main()`. `runSync` valida primero que `--force` no venga sin `MODULO_N` (error de uso, corta antes de convertir el `.docx` o tocar la red), convierte el `.docx` (`convertDocx`, siempre), filtra `manifest.modules` por `MODULO_N` si vino, chequea acceso a la página padre (`GET /pages/:id`) salvo con `--dry-run`, y recorre los módulos filtrados llamando a `pushModule` en orden con el `force` recibido, sin `try/catch` por módulo — un error aborta el resto de la corrida. |
+| `sync-course.ts` | Entrypoint de `npm run sync-course -- <archivo.docx> [MODULO_N] --area <area> --plataforma <plataforma> [--estado <estado>] [--titulo <titulo>] [--dry-run] [--force]` (`SPEC 08`). `parseArgv`, `prettifyTitle` (basename del `.docx` a título "prettified") y `runSyncCourse` (resuelve el `parent` automáticamente vía `course-registry.json`, creando la fila en `Cursos` con `createCourse` si el slug es nuevo, y delega siempre en `runSync` de `sync.ts` — sin modificarlo — para subir los módulos) separados de `main()`. No acepta `PARENT_PAGE_ID` como argumento; ver el detalle de la orquestación en "Instalar y correr". |
 
 ## Tests
 
