@@ -1,6 +1,6 @@
 # SPEC 08 — Creación automática de curso (course.create)
 
-> **Status:** Aprobado
+> **Status:** Implementado
 > **Depends on:** SPEC 01 (`slugify` en `src/docx-to-md/modules.ts`), SPEC 03 (`notion`, `loadEnv`, patrón `load*`/`save*`), SPEC 05 (`runSync` en `src/cli/sync.ts`), SPEC 07 (`registry.ts`: `loadRegistry`/`saveRegistry`/`upsertCourse`)
 > **Date:** 2026-07-30
 > **Objective:** Agregar un CLI nuevo (`sync-course`) que resuelve el parent de un curso automáticamente antes de subir sus módulos — usando el `pageId` ya registrado si el slug es conocido, o creando la fila en la base `Cursos` de Notion (con `--area`/`--plataforma` obligatorios) si es la primera vez — delegando siempre en el `runSync` ya existente para la subida de módulos en sí.
@@ -159,26 +159,26 @@ sincronización`.
 
 ## Acceptance criteria
 
-- [ ] `npm run typecheck` y `npm test` pasan sin errores con los archivos nuevos (`hash.ts`, `course.ts`, `sync-course.ts` y sus tests) y los tipos agregados a `types.ts`.
-- [ ] `hashFile` devuelve el mismo hash para el mismo contenido de archivo, y hashes distintos para contenidos distintos. (Test.)
-- [ ] `createCourse` hace `POST /pages` con `parent: { database_id }` y las 7 properties mapeadas correctamente (`Título`, `Área`, `Plataforma`, `Estado`, `Módulos`, `Archivo origen`, `Última sincronización`), sin tocar `Notas`. (Test.)
-- [ ] `updateCourseAfterSync` hace `PATCH` tocando **solo** `Módulos` y `Última sincronización`. (Test.)
-- [ ] `runSyncCourse` con slug nuevo y sin `--area`/`--plataforma` lanza un error de uso claro antes de tocar la red (no llama `notion`, `createCourse` ni `runSync`). (Test.)
-- [ ] `runSyncCourse` con slug nuevo y `--dry-run` no llama a `createCourse`, `upsertCourse`, `saveRegistry` ni `runSync`. (Test.)
-- [ ] `runSyncCourse` con slug nuevo sin `--dry-run` llama, en orden: `createCourse` → `upsertCourse`+`saveRegistry` → `runSync` (con el `pageId` nuevo como parent) → `updateCourseAfterSync`. (Test.)
-- [ ] `runSyncCourse` con slug ya registrado resuelve el `pageId` desde el registro sin exigir `--area`/`--plataforma` (aunque falten), llama a `runSync`, y si `!dryRun` llama también a `upsertCourse`+`saveRegistry`+`updateCourseAfterSync` (en ese orden, después de `runSync`). (Test.)
-- [ ] `runSyncCourse` con slug ya registrado y `--dry-run` no llama a `upsertCourse`, `saveRegistry` ni `updateCourseAfterSync` (solo delega en `runSync` con `dryRun: true`). (Test.)
-- [ ] Si `runSync` lanza con slug **nuevo**, `runSyncCourse` no llama a `updateCourseAfterSync` — pero `upsertCourse`+`saveRegistry` ya se llamaron antes del push, así que el registro queda consistente con la fila creada. Si `runSync` lanza con slug **ya registrado**, `runSyncCourse` aborta sin llamar a `upsertCourse`/`saveRegistry`/`updateCourseAfterSync` (ninguno de los tres se ejecutó todavía). (Test.)
-- [ ] `prettifyTitle("curso-profesional-de-javascript")` devuelve `"Curso Profesional De Javascript"` (guiones/underscores → espacios, cada palabra capitalizada); `--titulo` explícito lo pisa tal cual. (Test.)
-- [ ] `--estado` ausente aplica el default `"Terminado"` en las properties de creación. (Test.)
-- [ ] Falta `NOTION_CURSOS_DATABASE_ID` con slug nuevo produce un error de configuración claro, antes de llamar a `createCourse`. (Test.)
-- [ ] `package.json` tiene el script `"sync-course": "node src/cli/sync-course.ts"`.
-- [ ] `.env.example` incluye `NOTION_CURSOS_DATABASE_ID=`.
-- [ ] `README.md` documenta `hash.ts`/`course.ts` en la tabla de `src/notion-client/`, `sync-course.ts` en la de `src/cli/`, y el ejemplo de uso en "Instalar y correr" (incluyendo la precondición manual del esquema de `Cursos`).
-- [ ] Corrida real (agente, vía Bash) de `npm run sync-course -- <docx-de-"Curso Profesional de JavaScript"> --area Frontend --plataforma Platzi` contra el `NOTION_CURSOS_DATABASE_ID` real: crea la fila con las properties correctas y sube los módulos sin error. (Verificado por el agente.)
-- [ ] Segunda corrida real, mismo `.docx`, sin `--area`/`--plataforma`: resuelve el `pageId` del registro, no duplica la fila, actualiza `Módulos`/`Última sincronización`. (Verificado por el agente.)
-- [ ] `--dry-run` real en ambos escenarios (slug nuevo y ya registrado) no genera ninguna llamada de red. (Verificado por el agente.)
-- [ ] Los módulos de "Curso Profesional de JavaScript" quedan visiblemente subidos como subpáginas correctas de la fila creada. (Verificado a mano por el usuario.)
+- [x] `npm run typecheck` y `npm test` pasan sin errores con los archivos nuevos (`hash.ts`, `course.ts`, `sync-course.ts` y sus tests) y los tipos agregados a `types.ts`.
+- [x] `hashFile` devuelve el mismo hash para el mismo contenido de archivo, y hashes distintos para contenidos distintos. (Test.)
+- [x] `createCourse` hace `POST /pages` con `parent: { database_id }` y las 7 properties mapeadas correctamente (`Título`, `Área`, `Plataforma`, `Estado`, `Módulos`, `Archivo origen`, `Última sincronización`), sin tocar `Notas`. (Test.)
+- [x] `updateCourseAfterSync` hace `PATCH` tocando **solo** `Módulos` y `Última sincronización`. (Test.)
+- [x] `runSyncCourse` con slug nuevo y sin `--area`/`--plataforma` lanza un error de uso claro antes de tocar la red (no llama `notion`, `createCourse` ni `runSync`). (Test.)
+- [x] `runSyncCourse` con slug nuevo y `--dry-run` no llama a `createCourse`, `upsertCourse`, `saveRegistry` ni `runSync`. (Test.)
+- [x] `runSyncCourse` con slug nuevo sin `--dry-run` llama, en orden: `createCourse` → `upsertCourse`+`saveRegistry` → `runSync` (con el `pageId` nuevo como parent) → `updateCourseAfterSync`. (Test.)
+- [x] `runSyncCourse` con slug ya registrado resuelve el `pageId` desde el registro sin exigir `--area`/`--plataforma` (aunque falten), llama a `runSync`, y si `!dryRun` llama también a `upsertCourse`+`saveRegistry`+`updateCourseAfterSync` (en ese orden, después de `runSync`). (Test.)
+- [x] `runSyncCourse` con slug ya registrado y `--dry-run` no llama a `upsertCourse`, `saveRegistry` ni `updateCourseAfterSync` (solo delega en `runSync` con `dryRun: true`). (Test.)
+- [x] Si `runSync` lanza con slug **nuevo**, `runSyncCourse` no llama a `updateCourseAfterSync` — pero `upsertCourse`+`saveRegistry` ya se llamaron antes del push, así que el registro queda consistente con la fila creada. Si `runSync` lanza con slug **ya registrado**, `runSyncCourse` aborta sin llamar a `upsertCourse`/`saveRegistry`/`updateCourseAfterSync` (ninguno de los tres se ejecutó todavía). (Test.)
+- [x] `prettifyTitle("curso-profesional-de-javascript")` devuelve `"Curso Profesional De Javascript"` (guiones/underscores → espacios, cada palabra capitalizada); `--titulo` explícito lo pisa tal cual. (Test.)
+- [x] `--estado` ausente aplica el default `"Terminado"` en las properties de creación. (Test.)
+- [x] Falta `NOTION_CURSOS_DATABASE_ID` con slug nuevo produce un error de configuración claro, antes de llamar a `createCourse`. (Test.)
+- [x] `package.json` tiene el script `"sync-course": "node src/cli/sync-course.ts"`.
+- [x] `.env.example` incluye `NOTION_CURSOS_DATABASE_ID=`.
+- [x] `README.md` documenta `hash.ts`/`course.ts` en la tabla de `src/notion-client/`, `sync-course.ts` en la de `src/cli/`, y el ejemplo de uso en "Instalar y correr" (incluyendo la precondición manual del esquema de `Cursos`).
+- [x] Corrida real (agente, vía Bash) de `npm run sync-course -- <docx-de-"Curso Profesional de JavaScript"> --area Frontend --plataforma Platzi` contra el `NOTION_CURSOS_DATABASE_ID` real: crea la fila con las properties correctas y sube los módulos sin error. (Verificado por el agente.)
+- [x] Segunda corrida real, mismo `.docx`, sin `--area`/`--plataforma`: resuelve el `pageId` del registro, no duplica la fila, actualiza `Módulos`/`Última sincronización`. (Verificado por el agente.)
+- [x] `--dry-run` real en ambos escenarios (slug nuevo y ya registrado) no genera ninguna llamada de red. (Verificado por el agente.)
+- [x] Los módulos de "Curso Profesional de JavaScript" quedan visiblemente subidos como subpáginas correctas de la fila creada. (Verificado a mano por el usuario.)
 
 ---
 
