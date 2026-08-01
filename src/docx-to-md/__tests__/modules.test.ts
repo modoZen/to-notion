@@ -1,6 +1,14 @@
+import { basename } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Unit } from "../types.ts";
-import { isIndexModule, removeIndexModule, slugify, splitModules } from "../modules.ts";
+import {
+  courseFolderName,
+  courseSlug,
+  isIndexModule,
+  removeIndexModule,
+  slugify,
+  splitModules,
+} from "../modules.ts";
 import type { SplitModule } from "../modules.ts";
 
 describe("slugify", () => {
@@ -24,6 +32,41 @@ describe("slugify", () => {
   it("devuelve 'modulo' cuando no queda nada alfanumérico", () => {
     expect(slugify("¡¡¡???!!!")).toBe("modulo");
     expect(slugify("")).toBe("modulo");
+  });
+});
+
+describe("courseFolderName", () => {
+  it("devuelve el basename de la carpeta contenedora", () => {
+    expect(courseFolderName("/cursos/CursoA/Clases.docx")).toBe("CursoA");
+  });
+
+  it("una ruta relativa sin carpeta explícita resuelve contra el cwd", () => {
+    expect(() => courseFolderName("Clases.docx")).not.toThrow();
+    expect(courseFolderName("Clases.docx")).toBe(basename(process.cwd()));
+  });
+});
+
+describe("courseSlug", () => {
+  it("mismo basename en carpetas distintas produce slugs distintos", () => {
+    const a = courseSlug("/cursos/CursoA/Clases.docx");
+    const b = courseSlug("/cursos/CursoB/Clases.docx");
+    expect(a).not.toBe(b);
+  });
+
+  it("es determinístico: mismo docxPath produce siempre el mismo slug", () => {
+    const path = "/cursos/CursoA/Clases.docx";
+    expect(courseSlug(path)).toBe(courseSlug(path));
+  });
+
+  it("respeta el límite de 50 caracteres de slugify", () => {
+    const folder = "a".repeat(40);
+    const file = "b".repeat(40);
+    const slug = courseSlug(`/cursos/${folder}/${file}.docx`);
+    expect(slug.length).toBeLessThanOrEqual(50);
+  });
+
+  it("ruta relativa sin carpeta explícita no rompe (resuelve al cwd)", () => {
+    expect(() => courseSlug("Clases.docx")).not.toThrow();
   });
 });
 

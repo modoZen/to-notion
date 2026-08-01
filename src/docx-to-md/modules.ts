@@ -1,3 +1,4 @@
+import { basename, dirname, extname, resolve } from "node:path";
 import type { Unit } from "./types.ts";
 
 // ===========================================================================
@@ -14,6 +15,19 @@ export function slugify(s: string): string {
       .replace(/^-+|-+$/g, "")
       .slice(0, 50) || "modulo"
   );
+}
+
+/** basename() del directorio contenedor del .docx, resuelto a ruta absoluta primero. */
+export function courseFolderName(docxPath: string): string {
+  return basename(dirname(resolve(docxPath)));
+}
+
+/** Slug de curso: carpeta contenedora + basename del .docx, para que dos
+ * cursos con `.docx` de igual nombre en carpetas distintas no colisionen. */
+export function courseSlug(docxPath: string): string {
+  const folder = courseFolderName(docxPath);
+  const file = basename(docxPath, extname(docxPath));
+  return slugify(`${folder}-${file}`);
 }
 
 export interface SplitModule {
