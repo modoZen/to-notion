@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -279,6 +279,85 @@ describe("runSyncCourse()", () => {
       slug,
       expect.objectContaining({ docxFileName: `${basename(dir)}/curso-profesional-de-javascript.docx` }),
     );
+  });
+
+  it("basename no genérico (ej. 'curso-profesional-de-javascript.docx'): título default sale del basename, comportamiento sin cambios", async () => {
+    await runSyncCourse({ docxPath, dryRun: false, force: false, area: "Frontend", plataforma: "Platzi" });
+
+    expect(createCourseMock).toHaveBeenCalledWith(
+      "db-cursos",
+      expect.objectContaining({ titulo: "Curso Profesional De Javascript" }),
+    );
+  });
+
+  it("basename genérico 'Clases.docx': título default sale de la carpeta contenedora, prettificada", async () => {
+    const genericParent = mkdtempSync(join(tmpdir(), "sync-course-cli-generic-"));
+    const genericDir = join(genericParent, "Curso-Profesional-de-JavaScript");
+    mkdirSync(genericDir);
+    const genericDocxPath = join(genericDir, "Clases.docx");
+    writeFileSync(genericDocxPath, "");
+
+    await runSyncCourse({
+      docxPath: genericDocxPath,
+      dryRun: false,
+      force: false,
+      area: "Frontend",
+      plataforma: "Platzi",
+    });
+
+    expect(createCourseMock).toHaveBeenCalledWith(
+      "db-cursos",
+      expect.objectContaining({ titulo: "Curso Profesional De JavaScript" }),
+    );
+
+    rmSync(genericParent, { recursive: true, force: true });
+  });
+
+  it("basename genérico 'clase.docx' (minúsculas, singular): título default también sale de la carpeta contenedora", async () => {
+    const genericParent = mkdtempSync(join(tmpdir(), "sync-course-cli-generic-"));
+    const genericDir = join(genericParent, "Curso-Profesional-de-JavaScript");
+    mkdirSync(genericDir);
+    const genericDocxPath = join(genericDir, "clase.docx");
+    writeFileSync(genericDocxPath, "");
+
+    await runSyncCourse({
+      docxPath: genericDocxPath,
+      dryRun: false,
+      force: false,
+      area: "Frontend",
+      plataforma: "Platzi",
+    });
+
+    expect(createCourseMock).toHaveBeenCalledWith(
+      "db-cursos",
+      expect.objectContaining({ titulo: "Curso Profesional De JavaScript" }),
+    );
+
+    rmSync(genericParent, { recursive: true, force: true });
+  });
+
+  it("--titulo explícito sigue pisando el default incluso con basename genérico", async () => {
+    const genericParent = mkdtempSync(join(tmpdir(), "sync-course-cli-generic-"));
+    const genericDir = join(genericParent, "Curso-Profesional-de-JavaScript");
+    mkdirSync(genericDir);
+    const genericDocxPath = join(genericDir, "Clases.docx");
+    writeFileSync(genericDocxPath, "");
+
+    await runSyncCourse({
+      docxPath: genericDocxPath,
+      dryRun: false,
+      force: false,
+      area: "Frontend",
+      plataforma: "Platzi",
+      titulo: "Título Custom",
+    });
+
+    expect(createCourseMock).toHaveBeenCalledWith(
+      "db-cursos",
+      expect.objectContaining({ titulo: "Título Custom" }),
+    );
+
+    rmSync(genericParent, { recursive: true, force: true });
   });
 });
 

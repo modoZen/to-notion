@@ -31,6 +31,18 @@ export function prettifyTitle(basename: string): string {
     .join(" ");
 }
 
+// Basenames de .docx que no aportan información al título por sí solos
+// (comparación normalizada: NFD sin diacríticos, lowercase).
+const GENERIC_BASENAMES = new Set(["clase", "clases"]);
+
+function isGenericBasename(rawBasename: string): boolean {
+  const normalized = rawBasename
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return GENERIC_BASENAMES.has(normalized);
+}
+
 export function parseArgv(argv: string[]): RunSyncCourseOptions | null {
   const positional: string[] = [];
   let dryRun = false;
@@ -106,7 +118,9 @@ export async function runSyncCourse(options: RunSyncCourseOptions): Promise<void
   }
 
   const manifest = convertDocx({ docxPath });
-  const titulo = options.titulo ?? prettifyTitle(basename(docxPath, extname(docxPath)));
+  const rawBasename = basename(docxPath, extname(docxPath));
+  const titleSource = isGenericBasename(rawBasename) ? courseFolderName(docxPath) : rawBasename;
+  const titulo = options.titulo ?? prettifyTitle(titleSource);
   const properties: CourseProperties = {
     titulo,
     area: options.area,
