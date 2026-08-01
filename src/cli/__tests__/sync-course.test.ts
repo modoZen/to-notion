@@ -1,9 +1,9 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Manifest } from "../../docx-to-md/types.ts";
-import { courseSlug } from "../../docx-to-md/modules.ts";
+import { courseFolderName, courseSlug } from "../../docx-to-md/modules.ts";
 import type { CourseRegistry } from "../../notion-client/types.ts";
 
 const {
@@ -269,5 +269,73 @@ describe("runSyncCourse()", () => {
     expect(upsertCourseMock).not.toHaveBeenCalled();
     expect(saveRegistryMock).not.toHaveBeenCalled();
     expect(updateCourseAfterSyncMock).not.toHaveBeenCalled();
+  });
+
+  it("docxFileName pasa a ser '<carpeta>/<archivo>.docx'", async () => {
+    await runSyncCourse({ docxPath, dryRun: false, force: false, area: "Frontend", plataforma: "Platzi" });
+
+    expect(upsertCourseMock).toHaveBeenCalledWith(
+      {},
+      slug,
+      expect.objectContaining({ docxFileName: `${basename(dir)}/curso-profesional-de-javascript.docx` }),
+    );
+  });
+});
+
+describe("docxFileName con carpeta contenedora (integración con upsertCourse real)", () => {
+  it("dos docx con el mismo basename en carpetas distintas no colisionan en upsertCourse", async () => {
+    const { upsertCourse } = await vi.importActual<typeof import("../../notion-client/registry.ts")>(
+      "../../notion-client/registry.ts",
+    );
+
+    const dirA = mkdtempSync(join(tmpdir(), "sync-course-cli-a-"));
+    const dirB = mkdtempSync(join(tmpdir(), "sync-course-cli-b-"));
+    const docxPathA = join(dirA, "Clases.docx");
+    const docxPathB = join(dirB, "Clases.docx");
+
+    const slugA = courseSlug(docxPathA);
+    const slugB = courseSlug(docxPathB);
+    const docxFileNameA = `${courseFolderName(docxPathA)}/${basename(docxPathA)}`;
+    const docxFileNameB = `${courseFolderName(docxPathB)}/${basename(docxPathB)}`;
+
+    expect(slugA).not.toBe(slugB);
+    expect(docxFileNameA).not.toBe(docxFileNameB);
+
+    const registry: CourseRegistry = {};
+    expect(() =>
+      upsertCourse(registry, slugA, { pageId: "page-a", docxFileName: docxFileNameA, docxHash: "hash-a" }),
+    ).not.toThrow();
+    expect(() =>
+      upsertCourse(registry, slugB, { pageId: "page-b", docxFileName: docxFileNameB, docxHash: "hash-b" }),
+    ).not.toThrow();
+
+    expect(registry[slugA].docxFileName).toBe(docxFileNameA);
+    expect(registry[slugB].docxFileName).toBe(docxFileNameB);
+
+    rmSync(dirA, { recursive: true, force: true });
+    rmSync(dirB, { recursive: true, force: true });
+  });
+
+  it("el mismo docxPath en corridas sucesivas sigue actualizando la misma entrada sin lanzar", async () => {
+    const { upsertCourse } = await vi.importActual<typeof import("../../notion-client/registry.ts")>(
+      "../../notion-client/registry.ts",
+    );
+
+    const dir = mkdtempSync(join(tmpdir(), "sync-course-cli-repeat-"));
+    const docxPath = join(dir, "Clases.docx");
+    const slug = courseSlug(docxPath);
+    const docxFileName = `${courseFolderName(docxPath)}/${basename(docxPath)}`;
+
+    const registry: CourseRegistry = {};
+    expect(() =>
+      upsertCourse(registry, slug, { pageId: "page-1", docxFileName, docxHash: "hash-1" }),
+    ).not.toThrow();
+    expect(() =>
+      upsertCourse(registry, slug, { pageId: "page-2", docxFileName, docxHash: "hash-2" }),
+    ).not.toThrow();
+
+    expect(registry[slug].pageId).toBe("page-2");
+
+    rmSync(dir, { recursive: true, force: true });
   });
 });

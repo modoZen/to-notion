@@ -2,7 +2,7 @@
 import { existsSync } from "node:fs";
 import { basename, extname, resolve } from "node:path";
 import { convertDocx } from "../docx-to-md/convert.ts";
-import { courseSlug } from "../docx-to-md/modules.ts";
+import { courseFolderName, courseSlug } from "../docx-to-md/modules.ts";
 import { createCourse, updateCourseAfterSync } from "../notion-client/course.ts";
 import { hashFile } from "../notion-client/hash.ts";
 import { loadEnv } from "../notion-client/client.ts";
@@ -74,7 +74,7 @@ export async function runSyncCourse(options: RunSyncCourseOptions): Promise<void
   }
 
   const slug = courseSlug(docxPath);
-  const docxFileName = basename(docxPath);
+  const docxFileName = `${courseFolderName(docxPath)}/${basename(docxPath)}`;
   const docxHash = hashFile(docxPath);
   const registry = loadRegistry();
   const existing = registry[slug];
