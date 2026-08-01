@@ -1,6 +1,6 @@
 # SPEC 09 — Slug de curso incluye la carpeta contenedora
 
-> **Status:** Aprobado
+> **Status:** Implementando
 > **Depends on:** SPEC 01 (`slugify` en `src/docx-to-md/modules.ts`), SPEC 07 (`registry.ts`: `CourseRegistryEntry.docxFileName`, `upsertCourse`), SPEC 08 (`sync-course.ts`, que hoy calcula el slug solo con el basename del `.docx`)
 > **Date:** 2026-07-31
 > **Objective:** Introducir `courseSlug(docxPath)` en `modules.ts`, que combina el nombre de la carpeta contenedora con el basename del `.docx` (reemplazando el cálculo duplicado en `sync.ts`, `sync-course.ts`, `convert.ts` y `docx-to-md/convert.ts`) y enriquecer `docxFileName` del registro con esa misma carpeta+archivo, para que dos cursos distintos cuyo `.docx` comparte nombre de archivo en carpetas distintas dejen de colisionar bajo el mismo slug.
@@ -95,21 +95,21 @@ Conventions:
 
 ## Acceptance criteria
 
-- [ ] `npm run typecheck` y `npm test` pasan sin errores con las funciones nuevas (`courseFolderName`, `courseSlug`) y los call sites actualizados.
-- [ ] `courseSlug` produce slugs distintos para dos `.docx` con el mismo basename en carpetas distintas. (Test.)
-- [ ] `courseSlug` es determinístico: mismo `docxPath` produce siempre el mismo slug. (Test.)
-- [ ] `courseSlug` respeta el límite de 50 caracteres ya existente en `slugify()`. (Test.)
-- [ ] `courseFolderName` sobre una ruta relativa sin carpeta explícita (ej. `"Clases.docx"`) no lanza y resuelve contra el cwd. (Test.)
-- [ ] Los 4 call sites (`sync.ts`, `sync-course.ts`, `convert.ts`, `docx-to-md/convert.ts`) usan `courseSlug(docxPath)` en vez del cálculo duplicado viejo — ninguno llama a `slugify(basename(...))` directamente para el slug de curso.
-- [ ] `sync-course.ts` guarda `docxFileName` como `"<carpeta>/<archivo>.docx"` en el registro, no solo el basename. (Test.)
-- [ ] Dos `.docx` con el mismo basename en carpetas distintas producen `docxFileName` distinto y por lo tanto **no** colisionan al llamar `upsertCourse` con slugs distintos (cada uno registra su propia entrada). (Test.)
-- [ ] `upsertCourse` sigue lanzando su `Error` de colisión existente (SPEC 07) cuando el mismo slug efectivamente corresponde a `docxFileName` distinto (comportamiento sin cambios, solo con datos más precisos de entrada).
-- [ ] `prettifyTitle` con basename `"clase"`/`"clases"` (case-insensitive, sin acentos) genera el título default desde `courseFolderName(docxPath)`. (Test.)
-- [ ] `prettifyTitle` con basename no genérico mantiene el comportamiento actual (título desde el basename del archivo). (Test.)
-- [ ] `--titulo` explícito sigue pisando el default en ambos casos (genérico y no genérico).
-- [ ] `README.md` documenta `courseSlug`/`courseFolderName` y el comportamiento especial de `prettifyTitle` para `clase`/`clases`.
-- [ ] Verificación real (agente, vía Bash, solo `--dry-run`): con los 2 `.docx` reales del usuario, `courseSlug` calcula un valor distinto al del esquema viejo y el resumen de dry-run muestra `docxFileName` en formato `carpeta/archivo` — sin llamadas de red. (Verificado por el agente.)
-- [ ] Verificación real (agente, vía Bash): dos `.docx` de prueba llamados `Clases.docx` en dos carpetas temporales distintas, corridos con `sync-course --dry-run`, producen `courseSlug` y `docxFileName` distintos entre sí. (Verificado por el agente.)
+- [x] `npm run typecheck` y `npm test` pasan sin errores con las funciones nuevas (`courseFolderName`, `courseSlug`) y los call sites actualizados.
+- [x] `courseSlug` produce slugs distintos para dos `.docx` con el mismo basename en carpetas distintas. (Test.)
+- [x] `courseSlug` es determinístico: mismo `docxPath` produce siempre el mismo slug. (Test.)
+- [x] `courseSlug` respeta el límite de 50 caracteres ya existente en `slugify()`. (Test.)
+- [x] `courseFolderName` sobre una ruta relativa sin carpeta explícita (ej. `"Clases.docx"`) no lanza y resuelve contra el cwd. (Test.)
+- [x] Los 4 call sites (`sync.ts`, `sync-course.ts`, `convert.ts`, `docx-to-md/convert.ts`) usan `courseSlug(docxPath)` en vez del cálculo duplicado viejo — ninguno llama a `slugify(basename(...))` directamente para el slug de curso.
+- [x] `sync-course.ts` guarda `docxFileName` como `"<carpeta>/<archivo>.docx"` en el registro, no solo el basename. (Test.)
+- [x] Dos `.docx` con el mismo basename en carpetas distintas producen `docxFileName` distinto y por lo tanto **no** colisionan al llamar `upsertCourse` con slugs distintos (cada uno registra su propia entrada). (Test.)
+- [x] `upsertCourse` sigue lanzando su `Error` de colisión existente (SPEC 07) cuando el mismo slug efectivamente corresponde a `docxFileName` distinto (comportamiento sin cambios, solo con datos más precisos de entrada).
+- [x] `prettifyTitle` con basename `"clase"`/`"clases"` (case-insensitive, sin acentos) genera el título default desde `courseFolderName(docxPath)`. (Test.)
+- [x] `prettifyTitle` con basename no genérico mantiene el comportamiento actual (título desde el basename del archivo). (Test.)
+- [x] `--titulo` explícito sigue pisando el default en ambos casos (genérico y no genérico).
+- [x] `README.md` documenta `courseSlug`/`courseFolderName` y el comportamiento especial de `prettifyTitle` para `clase`/`clases`.
+- [x] Verificación real (agente, vía Bash, solo `--dry-run`): con los 2 `.docx` reales del usuario, `courseSlug` calcula un valor distinto al del esquema viejo y el resumen de dry-run muestra `docxFileName` en formato `carpeta/archivo` — sin llamadas de red. (Verificado por el agente.)
+- [x] Verificación real (agente, vía Bash): dos `.docx` de prueba llamados `Clases.docx` en dos carpetas temporales distintas, corridos con `sync-course --dry-run`, producen `courseSlug` y `docxFileName` distintos entre sí. (Verificado por el agente.)
 
 ---
 
