@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Manifest } from "../../docx-to-md/types.ts";
+import { courseSlug } from "../../docx-to-md/modules.ts";
 import type { CourseRegistry } from "../../notion-client/types.ts";
 
 const {
@@ -93,12 +94,14 @@ describe("parseArgv()", () => {
 describe("runSyncCourse()", () => {
   let dir: string;
   let docxPath: string;
+  let slug: string;
   const originalDbId = process.env.NOTION_CURSOS_DATABASE_ID;
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "sync-course-cli-"));
     docxPath = join(dir, "curso-profesional-de-javascript.docx");
     writeFileSync(docxPath, "");
+    slug = courseSlug(docxPath);
 
     runSyncMock.mockReset().mockResolvedValue(undefined);
     convertDocxMock.mockReset().mockReturnValue(manifest);
@@ -153,7 +156,7 @@ describe("runSyncCourse()", () => {
     );
     expect(upsertCourseMock).toHaveBeenCalledWith(
       {},
-      "curso-profesional-de-javascript",
+      slug,
       expect.objectContaining({ pageId: "page-nuevo", docxHash: "hash-123" }),
     );
     expect(runSyncMock).toHaveBeenCalledWith(
@@ -202,7 +205,7 @@ describe("runSyncCourse()", () => {
 
   it("slug ya registrado resuelve el pageId del registro sin exigir --area/--plataforma", async () => {
     loadRegistryMock.mockReturnValue({
-      "curso-profesional-de-javascript": {
+      [slug]: {
         pageId: "page-existente",
         docxFileName: "curso-profesional-de-javascript.docx",
         docxHash: "hash-vieja",
@@ -232,7 +235,7 @@ describe("runSyncCourse()", () => {
 
   it("slug ya registrado con --dry-run solo delega en runSync con dryRun: true, sin tocar registro", async () => {
     loadRegistryMock.mockReturnValue({
-      "curso-profesional-de-javascript": {
+      [slug]: {
         pageId: "page-existente",
         docxFileName: "curso-profesional-de-javascript.docx",
         docxHash: "hash-vieja",
@@ -251,7 +254,7 @@ describe("runSyncCourse()", () => {
 
   it("slug ya registrado donde runSync lanza: no llama a upsertCourse/saveRegistry/updateCourseAfterSync", async () => {
     loadRegistryMock.mockReturnValue({
-      "curso-profesional-de-javascript": {
+      [slug]: {
         pageId: "page-existente",
         docxFileName: "curso-profesional-de-javascript.docx",
         docxHash: "hash-vieja",
