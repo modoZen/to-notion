@@ -1,8 +1,9 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Manifest } from "../../docx-to-md/types.ts";
+import { courseFolderName, courseSlug } from "../../docx-to-md/modules.ts";
 import type { CourseRegistry } from "../../notion-client/types.ts";
 
 const {
@@ -93,12 +94,14 @@ describe("parseArgv()", () => {
 describe("runSyncCourse()", () => {
   let dir: string;
   let docxPath: string;
+  let slug: string;
   const originalDbId = process.env.NOTION_CURSOS_DATABASE_ID;
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "sync-course-cli-"));
     docxPath = join(dir, "curso-profesional-de-javascript.docx");
     writeFileSync(docxPath, "");
+    slug = courseSlug(docxPath);
 
     runSyncMock.mockReset().mockResolvedValue(undefined);
     convertDocxMock.mockReset().mockReturnValue(manifest);
@@ -153,7 +156,7 @@ describe("runSyncCourse()", () => {
     );
     expect(upsertCourseMock).toHaveBeenCalledWith(
       {},
-      "curso-profesional-de-javascript",
+      slug,
       expect.objectContaining({ pageId: "page-nuevo", docxHash: "hash-123" }),
     );
     expect(runSyncMock).toHaveBeenCalledWith(
@@ -202,7 +205,7 @@ describe("runSyncCourse()", () => {
 
   it("slug ya registrado resuelve el pageId del registro sin exigir --area/--plataforma", async () => {
     loadRegistryMock.mockReturnValue({
-      "curso-profesional-de-javascript": {
+      [slug]: {
         pageId: "page-existente",
         docxFileName: "curso-profesional-de-javascript.docx",
         docxHash: "hash-vieja",
@@ -232,7 +235,7 @@ describe("runSyncCourse()", () => {
 
   it("slug ya registrado con --dry-run solo delega en runSync con dryRun: true, sin tocar registro", async () => {
     loadRegistryMock.mockReturnValue({
-      "curso-profesional-de-javascript": {
+      [slug]: {
         pageId: "page-existente",
         docxFileName: "curso-profesional-de-javascript.docx",
         docxHash: "hash-vieja",
@@ -251,7 +254,7 @@ describe("runSyncCourse()", () => {
 
   it("slug ya registrado donde runSync lanza: no llama a upsertCourse/saveRegistry/updateCourseAfterSync", async () => {
     loadRegistryMock.mockReturnValue({
-      "curso-profesional-de-javascript": {
+      [slug]: {
         pageId: "page-existente",
         docxFileName: "curso-profesional-de-javascript.docx",
         docxHash: "hash-vieja",
@@ -266,5 +269,152 @@ describe("runSyncCourse()", () => {
     expect(upsertCourseMock).not.toHaveBeenCalled();
     expect(saveRegistryMock).not.toHaveBeenCalled();
     expect(updateCourseAfterSyncMock).not.toHaveBeenCalled();
+  });
+
+  it("docxFileName pasa a ser '<carpeta>/<archivo>.docx'", async () => {
+    await runSyncCourse({ docxPath, dryRun: false, force: false, area: "Frontend", plataforma: "Platzi" });
+
+    expect(upsertCourseMock).toHaveBeenCalledWith(
+      {},
+      slug,
+      expect.objectContaining({ docxFileName: `${basename(dir)}/curso-profesional-de-javascript.docx` }),
+    );
+  });
+
+  it("basename no genérico (ej. 'curso-profesional-de-javascript.docx'): título default sale del basename, comportamiento sin cambios", async () => {
+    await runSyncCourse({ docxPath, dryRun: false, force: false, area: "Frontend", plataforma: "Platzi" });
+
+    expect(createCourseMock).toHaveBeenCalledWith(
+      "db-cursos",
+      expect.objectContaining({ titulo: "Curso Profesional De Javascript" }),
+    );
+  });
+
+  it("basename genérico 'Clases.docx': título default sale de la carpeta contenedora, prettificada", async () => {
+    const genericParent = mkdtempSync(join(tmpdir(), "sync-course-cli-generic-"));
+    const genericDir = join(genericParent, "Curso-Profesional-de-JavaScript");
+    mkdirSync(genericDir);
+    const genericDocxPath = join(genericDir, "Clases.docx");
+    writeFileSync(genericDocxPath, "");
+
+    await runSyncCourse({
+      docxPath: genericDocxPath,
+      dryRun: false,
+      force: false,
+      area: "Frontend",
+      plataforma: "Platzi",
+    });
+
+    expect(createCourseMock).toHaveBeenCalledWith(
+      "db-cursos",
+      expect.objectContaining({ titulo: "Curso Profesional De JavaScript" }),
+    );
+
+    rmSync(genericParent, { recursive: true, force: true });
+  });
+
+  it("basename genérico 'clase.docx' (minúsculas, singular): título default también sale de la carpeta contenedora", async () => {
+    const genericParent = mkdtempSync(join(tmpdir(), "sync-course-cli-generic-"));
+    const genericDir = join(genericParent, "Curso-Profesional-de-JavaScript");
+    mkdirSync(genericDir);
+    const genericDocxPath = join(genericDir, "clase.docx");
+    writeFileSync(genericDocxPath, "");
+
+    await runSyncCourse({
+      docxPath: genericDocxPath,
+      dryRun: false,
+      force: false,
+      area: "Frontend",
+      plataforma: "Platzi",
+    });
+
+    expect(createCourseMock).toHaveBeenCalledWith(
+      "db-cursos",
+      expect.objectContaining({ titulo: "Curso Profesional De JavaScript" }),
+    );
+
+    rmSync(genericParent, { recursive: true, force: true });
+  });
+
+  it("--titulo explícito sigue pisando el default incluso con basename genérico", async () => {
+    const genericParent = mkdtempSync(join(tmpdir(), "sync-course-cli-generic-"));
+    const genericDir = join(genericParent, "Curso-Profesional-de-JavaScript");
+    mkdirSync(genericDir);
+    const genericDocxPath = join(genericDir, "Clases.docx");
+    writeFileSync(genericDocxPath, "");
+
+    await runSyncCourse({
+      docxPath: genericDocxPath,
+      dryRun: false,
+      force: false,
+      area: "Frontend",
+      plataforma: "Platzi",
+      titulo: "Título Custom",
+    });
+
+    expect(createCourseMock).toHaveBeenCalledWith(
+      "db-cursos",
+      expect.objectContaining({ titulo: "Título Custom" }),
+    );
+
+    rmSync(genericParent, { recursive: true, force: true });
+  });
+});
+
+describe("docxFileName con carpeta contenedora (integración con upsertCourse real)", () => {
+  it("dos docx con el mismo basename en carpetas distintas no colisionan en upsertCourse", async () => {
+    const { upsertCourse } = await vi.importActual<typeof import("../../notion-client/registry.ts")>(
+      "../../notion-client/registry.ts",
+    );
+
+    const dirA = mkdtempSync(join(tmpdir(), "sync-course-cli-a-"));
+    const dirB = mkdtempSync(join(tmpdir(), "sync-course-cli-b-"));
+    const docxPathA = join(dirA, "Clases.docx");
+    const docxPathB = join(dirB, "Clases.docx");
+
+    const slugA = courseSlug(docxPathA);
+    const slugB = courseSlug(docxPathB);
+    const docxFileNameA = `${courseFolderName(docxPathA)}/${basename(docxPathA)}`;
+    const docxFileNameB = `${courseFolderName(docxPathB)}/${basename(docxPathB)}`;
+
+    expect(slugA).not.toBe(slugB);
+    expect(docxFileNameA).not.toBe(docxFileNameB);
+
+    const registry: CourseRegistry = {};
+    expect(() =>
+      upsertCourse(registry, slugA, { pageId: "page-a", docxFileName: docxFileNameA, docxHash: "hash-a" }),
+    ).not.toThrow();
+    expect(() =>
+      upsertCourse(registry, slugB, { pageId: "page-b", docxFileName: docxFileNameB, docxHash: "hash-b" }),
+    ).not.toThrow();
+
+    expect(registry[slugA].docxFileName).toBe(docxFileNameA);
+    expect(registry[slugB].docxFileName).toBe(docxFileNameB);
+
+    rmSync(dirA, { recursive: true, force: true });
+    rmSync(dirB, { recursive: true, force: true });
+  });
+
+  it("el mismo docxPath en corridas sucesivas sigue actualizando la misma entrada sin lanzar", async () => {
+    const { upsertCourse } = await vi.importActual<typeof import("../../notion-client/registry.ts")>(
+      "../../notion-client/registry.ts",
+    );
+
+    const dir = mkdtempSync(join(tmpdir(), "sync-course-cli-repeat-"));
+    const docxPath = join(dir, "Clases.docx");
+    const slug = courseSlug(docxPath);
+    const docxFileName = `${courseFolderName(docxPath)}/${basename(docxPath)}`;
+
+    const registry: CourseRegistry = {};
+    expect(() =>
+      upsertCourse(registry, slug, { pageId: "page-1", docxFileName, docxHash: "hash-1" }),
+    ).not.toThrow();
+    expect(() =>
+      upsertCourse(registry, slug, { pageId: "page-2", docxFileName, docxHash: "hash-2" }),
+    ).not.toThrow();
+
+    expect(registry[slug].pageId).toBe("page-2");
+
+    rmSync(dir, { recursive: true, force: true });
   });
 });

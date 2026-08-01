@@ -2,7 +2,7 @@
 import { existsSync } from "node:fs";
 import { basename, extname, resolve } from "node:path";
 import { convertDocx } from "../docx-to-md/convert.ts";
-import { slugify } from "../docx-to-md/modules.ts";
+import { courseFolderName, courseSlug } from "../docx-to-md/modules.ts";
 import { createCourse, updateCourseAfterSync } from "../notion-client/course.ts";
 import { hashFile } from "../notion-client/hash.ts";
 import { loadEnv } from "../notion-client/client.ts";
@@ -29,6 +29,18 @@ export function prettifyTitle(basename: string): string {
     .filter(Boolean)
     .map((word) => word[0].toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+// Basenames de .docx que no aportan información al título por sí solos
+// (comparación normalizada: NFD sin diacríticos, lowercase).
+const GENERIC_BASENAMES = new Set(["clase", "clases"]);
+
+function isGenericBasename(rawBasename: string): boolean {
+  const normalized = rawBasename
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return GENERIC_BASENAMES.has(normalized);
 }
 
 export function parseArgv(argv: string[]): RunSyncCourseOptions | null {
@@ -73,8 +85,8 @@ export async function runSyncCourse(options: RunSyncCourseOptions): Promise<void
     throw new Error(`No existe ${docxPath}`);
   }
 
-  const slug = slugify(basename(docxPath, extname(docxPath)));
-  const docxFileName = basename(docxPath);
+  const slug = courseSlug(docxPath);
+  const docxFileName = `${courseFolderName(docxPath)}/${basename(docxPath)}`;
   const docxHash = hashFile(docxPath);
   const registry = loadRegistry();
   const existing = registry[slug];
@@ -106,7 +118,9 @@ export async function runSyncCourse(options: RunSyncCourseOptions): Promise<void
   }
 
   const manifest = convertDocx({ docxPath });
-  const titulo = options.titulo ?? prettifyTitle(basename(docxPath, extname(docxPath)));
+  const rawBasename = basename(docxPath, extname(docxPath));
+  const titleSource = isGenericBasename(rawBasename) ? courseFolderName(docxPath) : rawBasename;
+  const titulo = options.titulo ?? prettifyTitle(titleSource);
   const properties: CourseProperties = {
     titulo,
     area: options.area,

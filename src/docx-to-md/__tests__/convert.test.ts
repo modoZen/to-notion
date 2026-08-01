@@ -3,6 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Manifest } from "../types.ts";
+import { courseSlug } from "../modules.ts";
+
+const DOCX_PATH = join("fixtures", "curso-de-prueba.docx");
+const SLUG = courseSlug(DOCX_PATH);
 
 let mockRawMd = "";
 
@@ -61,11 +65,11 @@ describe("convertDocx", () => {
 
   it("convierte, descarta el índice por defecto, copia medios y escribe todos los archivos de salida", () => {
     mockRawMd = RAW_MD_CON_INDICE;
-    const manifest = convertDocx({ docxPath: "curso-de-prueba.docx", workspaceRoot });
+    const manifest = convertDocx({ docxPath: DOCX_PATH, workspaceRoot });
 
     expect(runPandoc).toHaveBeenCalledTimes(1);
 
-    const outDir = join(workspaceRoot, "curso-de-prueba");
+    const outDir = join(workspaceRoot, SLUG);
     expect(existsSync(join(outDir, "manifest.json"))).toBe(true);
     expect(existsSync(join(outDir, "report.txt"))).toBe(true);
     expect(existsSync(join(outDir, "media", "image1.png"))).toBe(true);
@@ -93,7 +97,7 @@ describe("convertDocx", () => {
   it("con keepIndex: true conserva el módulo de índice", () => {
     mockRawMd = RAW_MD_CON_INDICE;
     const manifest = convertDocx({
-      docxPath: "curso-de-prueba.docx",
+      docxPath: DOCX_PATH,
       workspaceRoot,
       keepIndex: true,
     });
@@ -105,19 +109,19 @@ describe("convertDocx", () => {
 
   it("reusa el caché si manifest.json ya existe: no vuelve a invocar pandoc", () => {
     mockRawMd = RAW_MD_DOS_MODULOS;
-    const primero = convertDocx({ docxPath: "curso-de-prueba.docx", workspaceRoot });
+    const primero = convertDocx({ docxPath: DOCX_PATH, workspaceRoot });
     expect(runPandoc).toHaveBeenCalledTimes(1);
 
-    const segundo = convertDocx({ docxPath: "curso-de-prueba.docx", workspaceRoot });
+    const segundo = convertDocx({ docxPath: DOCX_PATH, workspaceRoot });
     expect(runPandoc).toHaveBeenCalledTimes(1); // no un segundo llamado
     expect(segundo).toEqual(primero);
   });
 
   it("con el filtro 'only' activo, genera solo el módulo indicado", () => {
     mockRawMd = RAW_MD_DOS_MODULOS;
-    const manifest = convertDocx({ docxPath: "curso-de-prueba.docx", workspaceRoot, only: 2 });
+    const manifest = convertDocx({ docxPath: DOCX_PATH, workspaceRoot, only: 2 });
 
-    const outDir = join(workspaceRoot, "curso-de-prueba");
+    const outDir = join(workspaceRoot, SLUG);
     expect(existsSync(join(outDir, "modules", "01-modulo-a.md"))).toBe(false);
     expect(existsSync(join(outDir, "modules", "02-modulo-b.md"))).toBe(true);
     expect(manifest.modules).toHaveLength(1);

@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdir
 import { tmpdir } from "node:os";
 import { basename, extname, join, resolve } from "node:path";
 import { classifyUnit, fuseSplitBlocks, resolveUnknowns } from "./classifier/units.ts";
-import { removeIndexModule, slugify, splitModules } from "./modules.ts";
+import { courseSlug, removeIndexModule, slugify, splitModules } from "./modules.ts";
 import { runPandoc } from "./pandoc.ts";
 import { renderModule } from "./render.ts";
 import { tokenize } from "./tokenizer.ts";
@@ -14,7 +14,7 @@ import type { ConvertOptions, Manifest } from "./types.ts";
 
 export function convertDocx(options: ConvertOptions): Manifest {
   const workspaceRoot = options.workspaceRoot ?? "workspace";
-  const slug = slugify(basename(options.docxPath, extname(options.docxPath)));
+  const slug = courseSlug(options.docxPath);
   const outDir = resolve(workspaceRoot, slug);
   const manifestPath = join(outDir, "manifest.json");
 

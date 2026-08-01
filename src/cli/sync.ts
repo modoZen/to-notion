@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
-import { basename, extname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { convertDocx } from "../docx-to-md/convert.ts";
-import { slugify } from "../docx-to-md/modules.ts";
+import { courseSlug } from "../docx-to-md/modules.ts";
 import { loadEnv, notion } from "../notion-client/client.ts";
 import { pushModule } from "../notion-client/push-module.ts";
 import { loadState } from "../notion-client/state.ts";
@@ -62,7 +62,7 @@ export async function runSync(options: RunSyncOptions): Promise<void> {
     }
   }
 
-  const slug = slugify(basename(docxPath, extname(docxPath)));
+  const slug = courseSlug(docxPath);
   const outDir = resolve("workspace", slug);
   const mediaDir = join(outDir, "media");
 
